@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Fire Calendar: burning activity over Ukraine from NASA FIRMS, MODIS and VIIRS harmonized, 2000 to today." />
     <title>Fire Calendar</title>
+    <!-- The map's heat grid: fetched before the JS runs, ready when the map chunk arrives. -->
+    <link rel="preload" href="/data/grid.json" as="fetch" crossorigin="anonymous" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;600;700&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet" />

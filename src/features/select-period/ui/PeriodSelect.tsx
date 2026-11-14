@@ -1,5 +1,6 @@
 type Props = { from: number; to: number; min: number; max: number; onChange: (from: number, to: number) => void }
 
+/** Whole years between the archive's first and last (from /meta). */
 export function PeriodSelect({ from, to, min, max, onChange }: Props) {
   const years = Array.from({ length: max - min + 1 }, (_, i) => min + i)
   const options = years.map((y) => (

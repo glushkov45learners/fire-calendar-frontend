@@ -1,117 +1,82 @@
-import { useEffect, useRef } from 'react'
-import type { Region } from '@/entities/region'
-import { fmt } from '@/shared/lib/format'
-import { bbox } from '@/shared/lib/geo'
-import { gradient, ramp, SEQ } from '@/shared/lib/ramp'
-import map from '../model/ukraine-map.json'
+import type { Polygon } from 'geojson'
+import { lazy, Suspense, useMemo } from 'react'
+import type { Area } from '@/entities/aoi'
+import type { Hotspot } from '@/shared/api'
+import { MAX_MAP_POINTS } from '@/shared/config'
+import { fmt, periodLabel } from '@/shared/lib/format'
+import { gradient, SEQ } from '@/shared/lib/ramp'
+import { useAsync } from '@/shared/lib/use-async'
+import { ErrorBoundary } from '@/shared/ui/error-boundary'
+import { AGE_STOPS, heatCells, pointLayer, type HeatGrid } from '../lib/layers'
 
-// shortcut: the base layer is a static snapshot of all-time MODIS detections per 0.1° cell (base-36 levels, baked from the mockup);
-// switch to a tile or grid endpoint if the backend ever serves one.
-const [BW, BS, BE, BN] = map.bbox
-const VW = 1226
-const VH = 850
-const px = (lon: number) => ((lon - BW) / (BE - BW)) * VW
-const py = (lat: number) => ((BN - lat) / (BN - BS)) * VH
+// The map engine is a separate chunk; title, legend and the rest of the page render without waiting for it.
+const MapCanvas = lazy(() => import('./MapCanvas'))
 
-const CITIES: [string, number, number][] = [
-  ['Kyiv', 50.45, 30.52],
-  ['Kharkiv', 49.99, 36.23],
-  ['Odesa', 46.48, 30.73],
-  ['Lviv', 49.84, 24.03],
-  ['Dnipro', 48.46, 35.05],
-]
+const loadGrid = (signal: AbortSignal) =>
+  fetch('/data/grid.json', { signal }).then((r) => {
+    if (!r.ok) throw new Error(`grid.json: HTTP ${r.status}`)
+    return r.json() as Promise<HeatGrid>
+  })
 
-const ringPath = (ring: number[][]) => `M${ring.map((p) => `${px(p[0]).toFixed(1)} ${py(p[1]).toFixed(1)}`).join('L')}Z`
+type Props = {
+  area: Area
+  dateLabel: string
+  busy: boolean
+  /** The month whose hotspots are drawn. */
+  month: string | null
+  points: { data: Hotspot[] | null; loading: boolean; error: string | null }
+  onDraw: (polygon: Polygon | null) => void
+}
 
-type Props = { region: Region; dateLabel: string }
-
-export function FireMap({ region, dateLabel }: Props) {
-  const canvas = useRef<HTMLCanvasElement>(null)
-
-  // Redraw on any size change, including the sidebar collapse transition.
-  useEffect(() => {
-    const c = canvas.current!
-    const draw = () => {
-      const r = c.getBoundingClientRect()
-      const dpr = window.devicePixelRatio || 1
-      c.width = r.width * dpr
-      c.height = r.height * dpr
-      const g = c.getContext('2d')
-      if (!g) return
-      g.scale(c.width / VW, c.height / VH)
-      const cw = VW / map.gw
-      const ch = VH / map.gh
-      for (let i = 0; i < map.grid.length; i++) {
-        const l = parseInt(map.grid[i], 36)
-        if (!l) continue
-        g.fillStyle = ramp(SEQ, Math.pow(l / 35, 1.7))
-        g.fillRect((i % map.gw) * cw + 0.7, Math.floor(i / map.gw) * ch + 0.9, cw - 1.4, ch - 1.8)
-      }
-    }
-    const ro = new ResizeObserver(draw)
-    ro.observe(c)
-    return () => ro.disconnect()
-  }, [])
-
-  const [w, s, e, n] = bbox(region.aoi)
-  const x = px(w)
-  const y = py(n)
-  const bw = px(e) - x
-  const bh = py(s) - y
-  const t = 14
+export function FireMap({ area, dateLabel, busy, month, points, onDraw }: Props) {
+  // shortcut: the heat layer is the mockup's static grid (public/data/grid.json); replace with the ETL file or an endpoint once the team picks one.
+  // Fetched here, not in the lazy chunk, so it loads in parallel with the map engine.
+  const grid = useAsync(loadGrid, [])
+  const cells = useMemo(() => (grid.data ? heatCells(grid.data) : null), [grid.data])
+  const dots = useMemo(() => (points.data ? pointLayer(points.data, MAX_MAP_POINTS) : null), [points.data])
+  const shown = dots?.features.length ?? 0
+  const total = points.data?.length ?? 0
 
   return (
-    <section className="scene" id="top">
+    <section className="scene" id="top" aria-label="Map">
       <div className="map">
-        <canvas ref={canvas} aria-hidden="true" />
-        <svg viewBox={`0 0 ${VW} ${VH}`} role="img" aria-label={`Map of Ukraine drawn from MODIS fire detections, with ${region.name} outlined`}>
-          {[24, 28, 32, 36, 40].map((lon) => (
-            <path key={lon} d={`M${px(lon)} 0V${VH}`} stroke="rgba(240,240,250,.09)" vectorEffect="non-scaling-stroke" />
-          ))}
-          {[46, 48, 50, 52].map((lat) => (
-            <path key={lat} d={`M0 ${py(lat)}H${VW}`} stroke="rgba(240,240,250,.09)" vectorEffect="non-scaling-stroke" />
-          ))}
-          {map.border.map((ring, i) => (
-            <path key={i} d={ringPath(ring)} fill="none" stroke={`rgba(240,240,250,${region.whole ? 0.9 : 0.32})`} vectorEffect="non-scaling-stroke" />
-          ))}
-          {CITIES.map(([name, lat, lon]) => (
-            <g key={name}>
-              <rect x={px(lon) - 3} y={py(lat) - 3} width="6" height="6" fill="#fff" />
-              <text x={px(lon) + 14} y={py(lat) + 5}>
-                {name}
-              </text>
-            </g>
-          ))}
-          {!region.whole && (
-            <g>
-              <path d={ringPath(region.aoi.coordinates[0])} fill="rgba(240,240,250,.06)" stroke="#fff" strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
-              <path
-                d={`M${x} ${y + t}V${y}h${t}M${x + bw - t} ${y}h${t}v${t}M${x + bw} ${y + bh - t}v${t}h${-t}M${x + t} ${y + bh}h${-t}v${-t}`}
-                fill="none"
-                stroke="#fff"
-                strokeWidth="2.5"
-                vectorEffect="non-scaling-stroke"
-              />
-              <path d={`M${x + bw} ${y}l34 -34h70`} fill="none" stroke="rgba(255,255,255,.7)" vectorEffect="non-scaling-stroke" />
-              <text x={x + bw + 42} y={y - 42} style={{ fill: '#fff' }}>
-                {region.short}
-              </text>
-            </g>
-          )}
-        </svg>
+        <ErrorBoundary fallback={<p className="map-down">The map could not load. The calendar and charts below still work; reload to try the map again.</p>}>
+          <Suspense fallback={null}>
+            <MapCanvas area={area} cells={cells} dots={dots} onDraw={onDraw} />
+          </Suspense>
+        </ErrorBoundary>
       </div>
       <div className="veil" />
+
       <div className="map-key">
         MODIS detections per 0.1° cell
         <div className="ramp" style={{ background: gradient(SEQ) }} />
         <div className="ramp-ends">
           <span>1</span>
-          <span>{fmt(map.gmax)}</span>
+          <span>{grid.data ? fmt(grid.data.gmax) : ''}</span>
         </div>
+        {month && (
+          <div className="points-key" aria-live="polite">
+            {points.loading
+              ? `Loading hotspots, ${periodLabel(month, true)}`
+              : points.error
+                ? points.error
+                : `Showing ${fmt(shown)} of ${fmt(total)} hotspots, ${periodLabel(month, true)}`}
+            <div className="ramp" style={{ background: gradient([...AGE_STOPS]) }} />
+            <div className="ramp-ends">
+              <span>Day 1</span>
+              <span>Last day</span>
+            </div>
+          </div>
+        )}
       </div>
+
       <div className="opening">
-        <p className="date">{dateLabel}</p>
-        <h1>{region.name}</h1>
+        <p className="date">
+          {dateLabel}
+          {busy && <span className="busy"> · updating</span>}
+        </p>
+        <h1>{area.name}</h1>
       </div>
     </section>
   )

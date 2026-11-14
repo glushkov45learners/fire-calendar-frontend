@@ -1,1 +1,1 @@
-export { BurnCalendar, type CalendarMode } from './ui/BurnCalendar'
+export { BurnCalendar } from './ui/BurnCalendar'

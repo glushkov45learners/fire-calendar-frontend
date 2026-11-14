@@ -406,20 +406,6 @@
         position: absolute;
         inset: 0;
     }
-    .map canvas,
-    .map svg {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-    }
-    .map text {
-        font-family: var(--font-sans);
-        font-size: 15px;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-        fill: var(--color-navigation);
-    }
     .veil {
         position: absolute;
         inset: 0;
@@ -514,7 +500,8 @@
     }
     .cal text,
     .strip text,
-    .lines text {
+    .lines text,
+    .daily text {
         font-family: var(--font-mono);
         font-size: 11px;
         fill: var(--color-muted);
@@ -602,6 +589,273 @@
     }
     .foot small {
         font-size: 12px;
+        color: var(--color-muted);
+    }
+
+    /* ───── additions beyond the mockup, in its vocabulary ───── */
+    .skip-link {
+        position: absolute;
+        left: 12px;
+        top: -60px;
+        z-index: 20;
+        padding: 12px 16px;
+        background: var(--color-text);
+        color: #000;
+        border-radius: 4px;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+    .skip-link:focus {
+        top: 12px;
+    }
+    .seg button:disabled,
+    .action:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .hint.is-error {
+        color: #ffb4a8;
+    }
+    .note {
+        color: var(--color-muted);
+    }
+    .more {
+        margin-top: 12px;
+        border-bottom: 1px solid var(--color-hairline);
+    }
+    .more summary {
+        padding: 10px 0;
+        cursor: pointer;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-secondary);
+    }
+    .more summary:hover {
+        color: var(--color-text);
+    }
+    .point-form {
+        padding-bottom: 14px;
+    }
+    .point-form .fields {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .field {
+        display: grid;
+        gap: 4px;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--color-muted);
+    }
+    .field input {
+        min-width: 0;
+        height: 40px;
+        padding: 0 10px;
+        background: #000;
+        border: 1px solid var(--color-action-edge);
+        border-radius: 4px;
+        font: 400 14px/1 var(--font-mono);
+        color: var(--color-text);
+    }
+    .field input:focus {
+        border-color: var(--color-text);
+        outline: 0;
+    }
+    .field input[aria-invalid="true"] {
+        border-color: #ffb4a8;
+    }
+    .point-form .action {
+        height: 40px;
+    }
+    .export-row {
+        display: flex;
+        gap: 8px;
+    }
+    .export-row select {
+        height: 50px;
+        padding: 0 10px;
+        background: #000;
+        border: 1px solid var(--color-action-edge);
+        border-radius: 4px;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+    .export .hint {
+        max-width: 300px;
+    }
+    .stepper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 20px;
+    }
+    .stepper .action {
+        height: 40px;
+        padding: 0 16px;
+    }
+
+    /* calendar: no-data cells are a dashed outline, not a zero */
+    .cal rect.c {
+        cursor: pointer;
+        outline: none;
+    }
+    .cal rect.nd {
+        fill: transparent;
+        stroke: rgb(240 240 250 / 0.14);
+        stroke-dasharray: 2 3;
+        cursor: default;
+    }
+    .cal rect.is-sel,
+    .cal rect.c:focus-visible {
+        stroke: #fff;
+        stroke-width: 2;
+        stroke-dasharray: none;
+    }
+    .nodata-key {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        font: 400 11px/1.4 var(--font-mono);
+        color: var(--color-muted);
+    }
+    .nodata-key i {
+        width: 12px;
+        height: 12px;
+        border: 1px dashed rgb(240 240 250 / 0.4);
+    }
+    .tip small {
+        color: var(--color-muted);
+        font-size: 12px;
+    }
+    .cls {
+        text-transform: uppercase;
+        font-size: 0.85em;
+        letter-spacing: 0.04em;
+    }
+    .cls-low {
+        color: #9ecae8;
+    }
+    .cls-high {
+        color: #ed6925;
+    }
+    .cls-extreme {
+        color: #fcffa4;
+    }
+    .daily {
+        display: block;
+        grid-column: 1 / -1;
+        width: 100%;
+        height: auto;
+        overflow: visible;
+    }
+    .daily-note {
+        grid-column: 1 / -1;
+    }
+
+    /* map: MapLibre on a black canvas, overlays let pointer events through */
+    .map {
+        background: #000;
+    }
+    .veil,
+    .opening,
+    .map-key {
+        pointer-events: none;
+    }
+    .map-down {
+        position: absolute;
+        top: 24px;
+        right: 24px;
+        max-width: 320px;
+        color: var(--color-secondary);
+        font-size: 14px;
+    }
+    .busy {
+        color: var(--color-muted);
+    }
+    .points-key {
+        margin-top: 18px;
+    }
+    .city {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--color-navigation);
+        pointer-events: none;
+    }
+    .city::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        background: #fff;
+    }
+    .callout {
+        position: relative;
+        display: block;
+        width: 104px;
+        height: 34px;
+        pointer-events: none;
+    }
+    .callout svg {
+        position: absolute;
+        inset: 0;
+        fill: none;
+        stroke: rgb(255 255 255 / 0.7);
+    }
+    .callout span {
+        position: absolute;
+        left: 108px;
+        top: -8px;
+        white-space: nowrap;
+        font-size: 13px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: #fff;
+    }
+    .maplibregl-ctrl-group {
+        background: #000 !important;
+        border: 1px solid var(--color-action-edge);
+        border-radius: 4px !important;
+    }
+    .maplibregl-ctrl-group button + button {
+        border-top-color: var(--color-hairline) !important;
+    }
+    .maplibregl-ctrl-group button .maplibregl-ctrl-icon,
+    .maplibregl-ctrl-group button.mapbox-gl-draw_ctrl-draw-btn {
+        filter: invert(1);
+    }
+    .maplibregl-ctrl-group button.active {
+        background: rgb(240 240 250 / 0.25);
+    }
+    .maplibregl-cooperative-gesture-screen {
+        font-family: var(--font-sans);
+    }
+
+    .crash {
+        max-width: 560px;
+        margin: 15vh auto 0;
+        padding: 0 16px;
+    }
+    .crash h1 {
+        font-weight: 700;
+        font-size: 48px;
+        line-height: 1;
+        text-transform: uppercase;
+    }
+    .crash p {
+        margin: 16px 0;
+        color: var(--color-secondary);
+    }
+    .crash pre {
+        margin-bottom: 24px;
+        white-space: pre-wrap;
+        font: 400 13px/1.5 var(--font-mono);
         color: var(--color-muted);
     }
 }
