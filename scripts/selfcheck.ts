@@ -16,12 +16,11 @@ registerHooks({
   },
 })
 
-const { areaKm2, outerRings } = await import('../src/shared/lib/geo.ts')
+const { areaKm2, bboxPolygon, cellBounds, cellIdOf, outerRings, pointInGeometry, selfIntersects } = await import('../src/shared/lib/geo.ts')
 const { median, quantile } = await import('../src/shared/lib/stats.ts')
-const { parseCsv } = await import('../src/shared/lib/csv.ts')
 const { shiftPeriod } = await import('../src/shared/lib/format.ts')
-const { sortAnalyze, parseHotspots } = await import('../src/shared/api/endpoints.ts')
-const { mockAnalyze, mockCalendarCsv, mockHotspotsCsv, mockMeta, MockError } = await import('../src/shared/api/mocks/handlers.ts')
+const { sortAnalyze } = await import('../src/shared/api/endpoints.ts')
+const { mockAnalyze, mockCalendarCsv, mockGrid, mockHotspotsCsv, mockMeta, MockError } = await import('../src/shared/api/mocks/handlers.ts')
 const { handle } = await import('../src/shared/api/mocks/server.ts')
 const { areaFromParam, isInCoverage, parseLatLon, pointArea, PRESETS } = await import('../src/entities/aoi/model/area.ts')
 const { buildCells, cropMonthly, maskReason } = await import('../src/entities/analysis/model/series.ts')
@@ -32,7 +31,6 @@ assert.equal(median([3, 1, 2]), 2)
 assert.equal(median([4, 1, 2, 3]), 2.5)
 assert.equal(median([]), 0)
 assert.equal(quantile([1, 2, 3, 4, 5], 0.25), 2)
-assert.deepEqual(parseCsv('a,b\n1,"x, ""y"""\n'), [{ a: '1', b: 'x, "y"' }])
 assert.equal(shiftPeriod('2020-12', 1), '2021-01')
 assert.equal(shiftPeriod('2020-01', -1), '2019-12')
 
@@ -53,6 +51,10 @@ assert.equal(parseLatLon('50.4,'), null)
 assert.equal(PRESETS.find((p) => p.id === 'ua')!.geometry.type, 'MultiPolygon')
 assert.ok(Math.abs(areaKm2(PRESETS.find((p) => p.id === 'ua')!.geometry) - 603_550) < 60_000, 'Ukraine border area is plausible')
 assert.ok(outerRings(PRESETS[3].geometry)[0].length > 100)
+// The backend (PostGIS) rejects self-crossing rings; the mockup's border had one near the Dniester estuary.
+assert.ok(PRESETS.every((p) => !selfIntersects(p.geometry)), 'no preset ring crosses itself')
+assert.equal(selfIntersects(bboxPolygon([0, 0, 1, 1])), false)
+assert.equal(selfIntersects({ type: 'Polygon', coordinates: [[[0, 0], [1, 1], [1, 0], [0, 1], [0, 0]]] }), true, 'bowtie')
 
 /* describeAnomaly: small medians are told in detections, not percent */
 assert.equal(describeAnomaly(507, 7).figure, '+500')
@@ -97,22 +99,46 @@ const err = (f: () => unknown) => {
 assert.equal(err(() => mockAnalyze({ aoi: pointArea(10, 10).geometry, from: '2020-01-01', to: '2020-12-31' })), '400 outside_coverage')
 assert.equal(err(() => mockAnalyze({ aoi: chornobyl, from: '2021-01-01', to: '2020-12-31' })), '400 invalid_range')
 assert.equal(err(() => mockAnalyze({ aoi: { type: 'Point', coordinates: [30, 50] }, from: '2020-01-01', to: '2020-12-31' })), '400 invalid_aoi')
+assert.equal(err(() => mockAnalyze({ aoi: { type: 'Polygon', coordinates: [[[30, 50], [31, 51], [31, 50], [30, 51], [30, 50]]] }, from: '2020-01-01', to: '2020-12-31' })), '400 invalid_aoi', 'bowtie rejected like PostGIS')
 assert.equal(err(() => mockHotspotsCsv({ aoi: PRESETS[3].geometry, from: meta.date_min, to: meta.date_max })), '413 too_many_rows', 'all Ukraine, 26 years')
 const routed = handle('POST', '/hotspots.csv', JSON.stringify({ aoi: PRESETS[3].geometry, from: meta.date_min, to: meta.date_max }))
 assert.equal(routed.status, 413)
 assert.equal(JSON.parse(routed.body).error.code, 'too_many_rows', 'error body in contract form')
 assert.equal(handle('GET', '/meta', '').status, 200)
 
-/* hotspots: exactly in the polygon, type 0 / NRT only on the map */
-const csv = mockHotspotsCsv({ aoi: chornobyl, from: '2020-04-01', to: '2020-04-30' })
-const rows = parseCsv(csv)
+/* hotspots CSV: every raw point, exactly inside the polygon, industrial ones included */
+const csvRows = mockHotspotsCsv({ aoi: chornobyl, from: '2020-04-01', to: '2020-04-30' }).trim().split('\n').slice(1).map((l) => l.split(','))
 const april = res.monthly.find((r) => r.period === '2020-04')!
-assert.ok(rows.length >= april.modis_raw + april.viirs_raw, 'one row per raw detection or more')
-assert.ok(rows.some((r) => r.type === '2'), 'industrial points are in the CSV')
-const pts = parseHotspots(csv)
-assert.ok(pts.length < rows.length && pts.every((p) => p.type === 0 || p.type === null), 'map keeps type 0 and NRT only')
-assert.ok(pts.every((p) => p.lon >= 29.25 && p.lon <= 30.65 && p.lat >= 51.1 && p.lat <= 51.6), 'points inside the area')
-assert.ok(parseHotspots(mockHotspotsCsv({ aoi: chornobyl, from: '2026-11-01', to: '2026-11-14' })).every((p) => p.type === null && p.product === 'NRT'))
+assert.ok(csvRows.length >= april.modis_raw + april.viirs_raw, 'one row per raw detection or more')
+assert.ok(csvRows.some((r) => r[9] === '2'), 'industrial points are in the CSV')
+assert.ok(csvRows.every(([lat, lon]) => +lon >= 29.25 && +lon <= 30.65 && +lat >= 51.1 && +lat <= 51.6), 'points inside the area')
+
+/* the 0.1° grid of contract 1 */
+assert.equal(cellIdOf(37.612, 47.08959), 4934176, 'contract 1 example')
+assert.equal(cellIdOf(31.68034, 45.25808), 4869316, 'contract 1 example, NRT row')
+assert.deepEqual(cellBounds(4934176), [37.6, 47, 37.7, 47.1])
+assert.equal(cellIdOf(37.65, 47.05), 4934176, 'round trip through the cell centre')
+
+/* GET /grid (mock) */
+const ua = PRESETS[3].geometry
+const center = (id: number): [number, number] => {
+  const [w, s, e, n] = cellBounds(id)
+  return [(w + e) / 2, (s + n) / 2]
+}
+const grid = (from: string, to: string, record: string) => mockGrid(new URLSearchParams({ from, to, record }))
+const year2020 = grid('2020-01-01', '2020-12-31', 'harmonized')
+assert.ok(year2020.length > 3000, 'cells over Ukraine')
+assert.ok(year2020.every((c) => pointInGeometry(...center(c.cell_id), ua)), 'only cells inside the border')
+assert.ok(year2020.every((c) => c.count > 0), 'empty cells are left out')
+const uaTotal = mockAnalyze({ aoi: ua, from: '2020-01-01', to: '2020-12-31' }).totals.count_h
+const gridTotal = year2020.reduce((a, c) => a + c.count, 0)
+assert.ok(Math.abs(gridTotal - uaTotal) / uaTotal < 0.01, `grid sums to the area total (${gridTotal} vs ${uaTotal})`)
+assert.ok(grid('2020-04-01', '2020-04-30', 'harmonized').reduce((a, c) => a + c.count, 0) < gridTotal, 'a month is less than its year')
+assert.equal(grid('2005-01-01', '2005-12-31', 'viirs').length, 0, 'no VIIRS before 2012')
+assert.ok(grid('2005-01-01', '2005-12-31', 'modis').length > 0)
+assert.equal(err(() => grid('2005-01-01', '2005-12-31', 'noaa20')), '400 invalid_record')
+assert.equal(handle('GET', '/grid?from=2021-01-01&to=2020-01-01&record=modis', '').status, 400, 'invalid_range through the router')
+assert.ok(JSON.parse(handle('GET', '/grid?from=2020-04-01&to=2020-04-30&record=viirs', '').body).length > 0, 'routed with the query string')
 
 /* series: crop to the period, mask before each sensor starts */
 assert.deepEqual([...new Set(cropMonthly(res.monthly, 2015, 2016).map((r) => r.period.slice(0, 4)))], ['2015', '2016'])

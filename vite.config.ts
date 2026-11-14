@@ -16,7 +16,7 @@ function mockApi(): Plugin {
       let raw = ''
       for await (const chunk of req) raw += chunk
       const { handle } = await load()
-      const r = handle(req.method ?? 'GET', req.url.slice('/api/v1'.length).split('?')[0], raw)
+      const r = handle(req.method ?? 'GET', req.url.slice('/api/v1'.length), raw)
       await new Promise((ok) => setTimeout(ok, 250)) // visible loading states in the demo
       res.statusCode = r.status
       res.setHeader('Content-Type', `${r.type}; charset=utf-8`)
@@ -33,7 +33,8 @@ function mockApi(): Plugin {
 type MockResponse = { status: number; type: string; body: string; filename?: string }
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd())
+  // '' prefix: also read API_PROXY_TARGET, which is for the dev server only and must not reach the bundle.
+  const env = loadEnv(mode, process.cwd(), '')
   return {
     plugins: [react(), tailwindcss(), env.VITE_USE_MOCKS === 'true' && mockApi()],
     resolve: {
@@ -44,8 +45,9 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1300,
     },
     server: {
-      // Contract 3: the API lives on the same origin under /api/v1; in dev the Go backend runs on :8080.
-      proxy: { '/api': 'http://localhost:8080' },
+      // Contract 3: the API is on the app's own origin, so there is no CORS. In dev the browser calls /api/v1 on this server,
+      // which forwards it to API_PROXY_TARGET (the team's backend, or a local one on :8080).
+      proxy: { '/api': { target: env.API_PROXY_TARGET || 'http://localhost:8080', changeOrigin: true, secure: true } },
     },
   }
 })

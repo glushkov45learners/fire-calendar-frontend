@@ -89,7 +89,7 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
           <h2 id="calendar-h">Burning calendar</h2>
           <p>
             Each cell is one month. Read across a row to see a season return year after year; read down a column to see one year of burning.
-            Choose a month to see its hotspots on the map.
+            Choose a month to see where it burned on the map.
           </p>
         </div>
         <div className="cal-key">

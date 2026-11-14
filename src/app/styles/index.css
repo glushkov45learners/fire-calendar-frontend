@@ -776,8 +776,13 @@
     .busy {
         color: var(--color-muted);
     }
-    .points-key {
-        margin-top: 18px;
+    .map-note {
+        margin-top: 10px;
+        color: var(--color-text);
+    }
+    .map .tip {
+        max-width: 280px;
+        white-space: normal;
     }
     .city {
         display: flex;

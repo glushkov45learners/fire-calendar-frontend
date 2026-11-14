@@ -1,5 +1,5 @@
 export { ApiError, USE_MOCKS } from './client'
-export { analyze, calendarCsv, getHotspots, getMeta, hotspotsCsv, parseHotspots, sortAnalyze } from './endpoints'
+export { analyze, calendarCsv, getGrid, getMeta, hotspotsCsv, sortAnalyze } from './endpoints'
 export { describeError } from './errors'
 export type {
   Aoi,
@@ -9,7 +9,9 @@ export type {
   CalendarCsvQuery,
   CurrentMonth,
   DailyRow,
-  Hotspot,
+  GridCell,
+  GridQuery,
+  GridRecord,
   Meta,
   ModelMeta,
   MonthlyRow,

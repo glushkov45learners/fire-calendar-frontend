@@ -45,7 +45,8 @@ export type CurrentMonth = {
   period: string
   count_h: number
   median: number
-  ratio: number
+  /** null when the median is 0 (the contract's example shows a number; the backend sends null then). */
+  ratio: number | null
   pct: number
   anomaly: Anomaly
   days_observed: number
@@ -65,18 +66,10 @@ export type AnalyzeResult = {
 export type ApiErrorCode = 'invalid_aoi' | 'invalid_range' | 'outside_coverage' | 'too_many_rows'
 export type ApiErrorBody = { error: { code: ApiErrorCode | string; message: string } }
 
-/** One row of POST /hotspots.csv, typed. */
-export type Hotspot = {
-  lat: number
-  lon: number
-  date: string
-  time: string
-  satellite: string
-  instrument: string
-  confidence: string
-  frp: number
-  daynight: string
-  /** null for NRT rows, which carry no type. */
-  type: number | null
-  product: string
-}
+/**
+ * GET /grid: totals per 0.1° cell of contract 1 for one record over from..to. Cells with nothing are left out.
+ * shortcut: not in contract 3 yet; shape and name to agree with Andriy.
+ */
+export type GridRecord = 'harmonized' | 'modis' | 'viirs'
+export type GridQuery = { from: string; to: string; record: GridRecord }
+export type GridCell = { cell_id: number; count: number }

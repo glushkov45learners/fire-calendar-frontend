@@ -1,3 +1,6 @@
+import type { MultiPolygon } from 'geojson'
+import border from './ukraine-border.json'
+
 /** Coverage of the archive (contract 1): Ukraine, clipped to the border by the ETL. [west, south, east, north] */
 export const COVERAGE_BBOX: [number, number, number, number] = [22.0, 44.0, 40.3, 52.4]
 
@@ -12,11 +15,12 @@ export const MAX_RADIUS_KM = 500
 /** MapLibre's Web Mercator stops at ±85°; ±80 plus the largest radius stays inside it. */
 export const MAX_ABS_LAT = 80
 
-/** Most points the map draws for one month. */
-export const MAX_MAP_POINTS = 2000
 /** /analyze returns `daily` only for periods up to this many years. */
 export const DAILY_MAX_YEARS = 3
 /** Below this median a percentage overstates the change (7 → 507 reads as +7143%). */
 export const SMALL_MEDIAN = 20
 
 export const ANALYZE_DEBOUNCE_MS = 300
+
+/** Ukraine's border as drawn in the design mockup (one self-crossing vertex near the Dniester estuary removed). */
+export const UKRAINE_BORDER = border as MultiPolygon

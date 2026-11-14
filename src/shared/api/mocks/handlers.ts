@@ -1,10 +1,10 @@
 // Mock of the contract-3 backend, served by the dev server when VITE_USE_MOCKS=true (see vite.config.ts).
 // Built on real monthly MODIS / VIIRS S-NPP counts for four areas, taken from docs/design2-mockup.html.
-import grid from '../../../../public/data/grid.json'
-import { COVERAGE_BBOX } from '@/shared/config'
-import { areaKm2, bbox, bboxesIntersect, bboxPolygon, centroid, inBbox, pointInGeometry, type Bbox, type Geometry } from '@/shared/lib/geo'
+import grid from './grid.json'
+import { COVERAGE_BBOX, UKRAINE_BORDER } from '@/shared/config'
+import { areaKm2, bbox, bboxesIntersect, bboxPolygon, cellBounds, cellIdOf, centroid, inBbox, pointInGeometry, selfIntersects, type Bbox, type Geometry } from '@/shared/lib/geo'
 import { median, quantile } from '@/shared/lib/stats'
-import type { AnalyzeResult, Anomaly, CalendarCsvQuery, DailyRow, Meta, MonthlyRow } from '../types'
+import type { AnalyzeResult, Anomaly, CalendarCsvQuery, DailyRow, GridCell, Meta, MonthlyRow } from '../types'
 import data from './data.json'
 
 export class MockError extends Error {
@@ -53,12 +53,19 @@ function validate(q: { aoi?: unknown; from?: unknown; to?: unknown }): { aoi: Ge
     (g?.type === 'Polygon' && ringsOk(g.coordinates)) ||
     (g?.type === 'MultiPolygon' && Array.isArray(g.coordinates) && g.coordinates.length > 0 && g.coordinates.every(ringsOk))
   if (!ok) throw new MockError(400, 'invalid_aoi', 'AOI must be a Polygon or MultiPolygon')
-  const from = String(q.from ?? '')
-  const to = String(q.to ?? '')
-  if (!ISO.test(from) || !ISO.test(to) || from > to || from < DATE_MIN || to > DATE_MAX)
-    throw new MockError(400, 'invalid_range', `from and to must satisfy ${DATE_MIN} <= from <= to <= ${DATE_MAX}`)
+  // As the real backend (PostGIS validity): a self-crossing ring is rejected.
+  if (selfIntersects(g!)) throw new MockError(400, 'invalid_aoi', 'AOI is not a valid polygon: a ring crosses itself')
+  const { from, to } = checkRange(q.from, q.to)
   if (!bboxesIntersect(bbox(g), COVERAGE_BBOX)) throw new MockError(400, 'outside_coverage', 'AOI does not intersect the coverage')
   return { aoi: g, from, to }
+}
+
+function checkRange(f: unknown, t: unknown): { from: string; to: string } {
+  const from = String(f ?? '')
+  const to = String(t ?? '')
+  if (!ISO.test(from) || !ISO.test(to) || from > to || from < DATE_MIN || to > DATE_MAX)
+    throw new MockError(400, 'invalid_range', `from and to must satisfy ${DATE_MIN} <= from <= to <= ${DATE_MAX}`)
+  return { from, to }
 }
 
 /* ───────── series ───────── */
@@ -193,7 +200,7 @@ export function mockAnalyze(body: unknown): AnalyzeResult {
       period: cur.period,
       count_h: cur.count_h,
       median: cur.median,
-      ratio: cur.median ? +(cur.count_h / cur.median).toFixed(2) : 0,
+      ratio: cur.median ? +(cur.count_h / cur.median).toFixed(2) : null,
       pct: cur.pct,
       anomaly: cur.anomaly,
       days_observed: observedDays(cur.period),
@@ -305,4 +312,56 @@ export function mockHotspotsCsv(body: unknown): string {
     emit('VIIRS', Math.round(r.viirs_raw * 1.03))
   }
   return lines.join('\n') + '\n'
+}
+
+/* ───────── GET /grid ───────── */
+
+const UKRAINE: Geometry = UKRAINE_BORDER
+let ukraineCells: { id: number; w: number }[] | null = null
+
+/** Cells whose centre is inside Ukraine's border, weighted by the mockup's all-time MODIS heat (levels are log-like: gmax^(l/35)). */
+function gridWeights() {
+  if (ukraineCells) return ukraineCells
+  const [W, , , N] = grid.bbox
+  ukraineCells = []
+  for (let i = 0; i < grid.grid.length; i++) {
+    const l = parseInt(grid.grid[i], 36)
+    if (!l) continue
+    const id = cellIdOf(W + (i % grid.gw) * grid.step + grid.step / 2, N - Math.floor(i / grid.gw) * grid.step - grid.step / 2)
+    // Test the cell's exact centre (from its id), not the float sum above, so edge cells match the backend's rule.
+    const [w, s, e, n] = cellBounds(id)
+    if (pointInGeometry((w + e) / 2, (s + n) / 2, UKRAINE)) ukraineCells.push({ id, w: grid.gmax ** (l / 35) })
+  }
+  return ukraineCells
+}
+
+/** Stable per cell and month, 0.3–1.7: months differ in where they burn, not only how much. */
+const jitter = (cell: number, month: number) => {
+  const x = Math.sin(cell * 12.9898 + month * 78.233) * 43758.5453
+  return 0.3 + 1.4 * (x - Math.floor(x))
+}
+
+/**
+ * Ukraine's monthly totals of the record, spread over the cells by heat weight and summed over from..to.
+ * shortcut: synthetic spatial pattern; the backend sums cell_day per cell. Endpoint itself to agree with Andriy.
+ */
+export function mockGrid(params: URLSearchParams): GridCell[] {
+  const { from, to } = checkRange(params.get('from'), params.get('to'))
+  const record = params.get('record')
+  if (record !== 'harmonized' && record !== 'modis' && record !== 'viirs')
+    throw new MockError(400, 'invalid_record', 'record must be harmonized, modis or viirs')
+  const cells = gridWeights()
+  const acc = new Float64Array(cells.length)
+  for (const r of mockMonthly(UKRAINE)) {
+    if (r.period < from.slice(0, 7) || r.period > to.slice(0, 7)) continue
+    const total = record === 'harmonized' ? r.count_h : record === 'modis' ? r.modis_raw : r.viirs_raw
+    if (!total) continue
+    const m = yearOf(r.period) * 12 + +r.period.slice(5)
+    let sum = 0
+    for (let i = 0; i < cells.length; i++) sum += cells[i].w * jitter(cells[i].id, m)
+    for (let i = 0; i < cells.length; i++) acc[i] += (total * cells[i].w * jitter(cells[i].id, m)) / sum
+  }
+  return cells
+    .map((c, i) => ({ cell_id: c.id, count: record === 'harmonized' ? +acc[i].toFixed(1) : Math.round(acc[i]) }))
+    .filter((c) => c.count > 0)
 }

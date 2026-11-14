@@ -2,13 +2,13 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
 import * as maplibregl from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import type { FeatureCollection, Point, Polygon } from 'geojson'
+import type { FeatureCollection, Polygon } from 'geojson'
 import { useMemo, useRef } from 'react'
 import Map, { Layer, Marker, NavigationControl, Source, type MapRef, type StyleSpecification } from 'react-map-gl/maplibre'
 import { UKRAINE_BORDER, type Area } from '@/entities/aoi'
 import { DrawAreaControl } from '@/features/draw-area'
 import { bbox } from '@/shared/lib/geo'
-import { AGE_STOPS, brackets, graticule, VIEW } from '../lib/layers'
+import { brackets, graticule, VIEW } from '../lib/layers'
 
 // Vite bundles maplibre-gl, which breaks its own import.meta.url lookup of the worker file.
 // This instance is passed to <Map mapLib>, since react-map-gl would otherwise load a second copy.
@@ -30,11 +30,12 @@ const LINES = graticule(VIEW)
 type Props = {
   area: Area
   cells: FeatureCollection<Polygon> | null
-  dots: FeatureCollection<Point> | null
   onDraw: (polygon: Polygon | null) => void
+  /** The heat cell under the pointer, with the pointer's position in the map; null when off the grid. */
+  onHover: (cell: { id: number; count: number; x: number; y: number } | null) => void
 }
 
-export default function MapCanvas({ area, cells, dots, onDraw }: Props) {
+export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
   const ref = useRef<MapRef>(null)
   const box = bbox(area.geometry)
   const marks = useMemo(() => brackets(box), [box[0], box[1], box[2], box[3]]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -53,6 +54,13 @@ export default function MapCanvas({ area, cells, dots, onDraw }: Props) {
       cooperativeGestures
       // The scene keeps the map's proportions, so after any resize the country fits again.
       onResize={fitCountry}
+      // shortcut: clicking a cell does nothing yet; it could later select the cell as the area.
+      interactiveLayerIds={cells ? ['heat'] : []}
+      onMouseMove={(e) => {
+        const p = e.features?.[0]?.properties
+        onHover(p ? { id: Number(p.id), count: Number(p.count), x: e.point.x, y: e.point.y } : null)
+      }}
+      onMouseLeave={() => onHover(null)}
     >
       <NavigationControl position="top-right" showCompass={false} />
       <DrawAreaControl onChange={onDraw} active={area.kind === 'drawn'} position="top-right" />
@@ -62,7 +70,7 @@ export default function MapCanvas({ area, cells, dots, onDraw }: Props) {
       </Source>
       {cells && (
         <Source id="heat" type="geojson" data={cells}>
-          <Layer id="heat" type="fill" paint={{ 'fill-color': ['get', 'c'], 'fill-outline-color': '#000', 'fill-opacity': dots?.features.length ? 0.6 : 0.95 }} />
+          <Layer id="heat" type="fill" paint={{ 'fill-color': ['get', 'c'], 'fill-outline-color': '#000', 'fill-opacity': 0.95 }} />
         </Source>
       )}
       <Source id="border" type="geojson" data={UKRAINE_BORDER}>
@@ -79,21 +87,6 @@ export default function MapCanvas({ area, cells, dots, onDraw }: Props) {
           <Layer id="brackets" type="line" paint={{ 'line-color': '#fff', 'line-width': 2.5 }} />
         </Source>
       )}
-      {dots && (
-        <Source id="points" type="geojson" data={dots}>
-          <Layer
-            id="points"
-            type="circle"
-            paint={{
-              'circle-color': ['interpolate', ['linear'], ['get', 't'], 0, AGE_STOPS[0], 0.4, AGE_STOPS[1], 0.75, AGE_STOPS[2], 1, AGE_STOPS[3]],
-              'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 1.8, 8, 3, 12, 5],
-              'circle-stroke-color': '#000',
-              'circle-stroke-width': 0.6,
-            }}
-          />
-        </Source>
-      )}
-
       {CITIES.map(([name, lat, lon]) => (
         <Marker key={name} longitude={lon} latitude={lat} anchor="left" offset={[-3, 0]}>
           <span className="city">{name}</span>

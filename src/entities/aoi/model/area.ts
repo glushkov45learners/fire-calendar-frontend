@@ -1,7 +1,6 @@
-import type { MultiPolygon, Polygon } from 'geojson'
-import { COVERAGE_BBOX, DEFAULT_RADIUS_KM, MAX_ABS_LAT, MAX_RADIUS_KM } from '@/shared/config'
+import type { Polygon } from 'geojson'
+import { COVERAGE_BBOX, DEFAULT_RADIUS_KM, MAX_ABS_LAT, MAX_RADIUS_KM, UKRAINE_BORDER } from '@/shared/config'
 import { bboxPolygon, circlePolygon, inBbox, type Geometry } from '@/shared/lib/geo'
-import border from './ukraine-border.json'
 
 /** An area of interest. `geometry` is exactly what goes to the API as `aoi`. */
 export type Area = {
@@ -14,8 +13,7 @@ export type Area = {
   whole?: boolean
 }
 
-/** Ukraine's border as drawn in the design mockup. */
-export const UKRAINE_BORDER = border as MultiPolygon
+export { UKRAINE_BORDER }
 
 // Order and boxes as in the design mockup.
 export const PRESETS: Area[] = [

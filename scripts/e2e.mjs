@@ -2,7 +2,7 @@
 //
 //   npm run e2e
 //
-// Starts its own Vite dev server on E2E_PORT (default 5179) with the contract-3 mocks (VITE_USE_MOCKS=true in .env.development),
+// Starts its own Vite dev server on E2E_PORT (default 5179) with the contract-3 mocks forced on,
 // unless E2E_URL points at a running app. The expectations assume the mock data (e.g. Chornobyl, April 2020 is "extreme").
 // Chrome: CHROME_PATH, or the default install location. Screenshots go to screenshots/ (git-excluded); downloads and the
 // browser profile to the OS temp folder. Exit code 1 if any check fails.
@@ -36,6 +36,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 let vite = null
 let BASE = process.env.E2E_URL
 if (!BASE) {
+  // The checks expect the mock data, whatever .env.development says; process.env wins over .env files in Vite.
+  process.env.VITE_USE_MOCKS = 'true'
   const { createServer } = await import('vite')
   vite = await createServer({ root: ROOT, mode: 'development', server: { port: PORT, strictPort: true }, logLevel: 'warn' })
   await vite.listen()
@@ -131,6 +133,30 @@ try {
     }
   }
 
+  /* map grid: whole period by default, follows the record, VIIRS before 2012, hover */
+  await goto('/?area=chornobyl')
+  await waitFor(`!document.querySelector('.map-note')`, 10000)
+  const ends = (await text('.map-key .ramp-ends')).trim()
+  check('grid legend: harmonized, whole period, max from the data', /^Harmonized detections per 0\.1° cell, Nov 2000 – Nov 2026/.test(await text('.map-key')) && ends !== '1', await text('.map-key'))
+  check('no hotspot points or their legend on the map', !(await text('.scene')).includes('Showing') && !(await text('.scene')).includes('Last day'))
+  await goto('/?area=chornobyl&record=modis&from=2005&to=2006')
+  await waitFor(`!document.querySelector('.map-note')`, 10000)
+  check('grid follows the record and the period', /^MODIS detections per 0\.1° cell, Jan 2005 – Dec 2006/.test(await text('.map-key')), await text('.map-key'))
+  await goto('/?area=chornobyl&record=viirs&from=2005&to=2006')
+  check('VIIRS before 2012: empty map with a note', (await text('.map-note')) === 'VIIRS S-NPP starts in 2012' && (await text('.map-key .ramp-ends')).trim() === '1')
+  await goto('/?area=ua')
+  await waitFor(`!document.querySelector('.map-note')`, 10000)
+  await sleep(1500)
+  const box = await ev(`const r = document.querySelector('.map canvas').getBoundingClientRect(); return [r.x, r.y, r.width, r.height]`)
+  for (const [fx, fy] of [[0.5, 0.35], [0.55, 0.4], [0.45, 0.45], [0.6, 0.3]]) {
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: box[0] + box[2] * fx, y: box[1] + box[3] * fy })
+    if (await waitFor(`document.querySelector('.map .tip')`, 1500)) break
+  }
+  const cellTip = await text('.map .tip')
+  check('hover on a cell: its coordinates and count for the period', /\d+\.\d–\d+\.\d° N, \d+\.\d–\d+\.\d° E/.test(cellTip) && /harmonized detections, Nov 2000 – Nov 2026/.test(cellTip), cellTip)
+  await shot('desktop-grid-hover')
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+
   /* records and modes */
   await goto('/?area=chornobyl&record=viirs')
   let c = await cellsInfo()
@@ -149,21 +175,21 @@ try {
   /* tooltips */
   await hover('2020-04')
   await sleep(200)
-  const tip = await text('.tip')
+  const tip = await text('.cal-wrap .tip')
   check('tooltip: month, count_h, median, ratio, percentile, class', /Apr 2020/.test(tip) && /Median/.test(tip) && /percentile/.test(tip) && /extreme|high|normal|low/.test(tip), tip)
   await goto('/?area=chornobyl&record=modis')
   await hover('2020-04')
   await sleep(200)
-  check('tooltip in MODIS mode: raw values', /MODIS \d/.test(await text('.tip')), await text('.tip'))
+  check('tooltip in MODIS mode: raw values', /MODIS \d/.test(await text('.cal-wrap .tip')), await text('.cal-wrap .tip'))
 
   /* choosing a month; periods */
   await goto('/?area=chornobyl&from=2020&to=2022')
   await ev(`document.querySelector('.cal rect[data-p="2020-04"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`)
   await waitFor(`location.search.includes('month=2020-04') && document.querySelectorAll('.daily rect').length > 0`)
-  await waitFor(`/Showing \\d/.test(document.querySelector('.points-key')?.textContent ?? '')`, 10000)
+  await waitFor(`document.querySelector('.map-key')?.textContent.includes('April 2020') && !document.querySelector('.map-note')`, 10000)
   const bars = await ev(`return document.querySelectorAll('.daily rect').length`)
-  const pk = await text('.points-key')
-  check('click chooses the month: URL, This month, days, map points', bars === 30 && (await text('#month-h')) === 'April 2020' && /Showing [\d,]+ of [\d,]+ hotspots, Apr 2020/.test(pk), `${bars} days; ${pk}`)
+  const mapKey = await text('.map-key')
+  check('click chooses the month: URL, This month, days, map grid of that month', bars === 30 && (await text('#month-h')) === 'April 2020' && /^Harmonized detections per 0\.1° cell, April 2020/.test(mapKey), `${bars} days; ${mapKey}`)
   await sleep(800)
   await shot('desktop-april-2020', true)
   await goto('/?area=chornobyl&from=2010&to=2026')
