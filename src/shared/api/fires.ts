@@ -1,30 +1,26 @@
-import type { Polygon } from 'geojson'
-import { request, USE_MOCKS } from './client'
-import { mockCalendar, mockHotspots } from './mocks'
+import { getBlob, getJson, USE_MOCKS } from './client'
+import { mockAnalyze, mockCalendarCsv, mockHotspotsCsv, mockMeta } from './mocks'
+import type { AnalyzeQuery, AnalyzeResult, Meta } from './types'
 
-export type Source = 'modis' | 'viirs' | 'harmonized'
+let meta: Promise<Meta> | null = null
 
-/** One calendar cell: hotspots detected in the area in that month, and the median of the same month in the other years. */
-export type CalendarCell = { year: number; month: number; count: number; median: number }
-
-export type Hotspot = { lat: number; lon: number; acquired: string; frp: number }
-
-export type CalendarQuery = { area: Polygon; source: Source; from: number; to: number }
-export type HotspotQuery = { area: Polygon; source: Source; year: number; month: number }
-
-/** Months without observations (before the sensor flew, or not yet over) are absent, not zero. */
-export function getCalendar(q: CalendarQuery): Promise<CalendarCell[]> {
-  const cells = USE_MOCKS
-    ? delay(mockCalendar(q))
-    : request<CalendarCell[]>('/calendar', { method: 'POST', body: JSON.stringify(q) })
-  // Callers read the first and last cell as the period's ends; the backend does not promise an order.
-  return cells.then((c) => c.sort((a, b) => a.year - b.year || a.month - b.month))
+/** GET /meta, fetched once per session; a failed attempt is forgotten so the next call retries. */
+export function getMeta(): Promise<Meta> {
+  meta ??= (USE_MOCKS ? delay(mockMeta()) : getJson<Meta>('/meta')).catch((e) => {
+    meta = null
+    throw e
+  })
+  return meta
 }
 
-export function getHotspots(q: HotspotQuery): Promise<Hotspot[]> {
-  if (USE_MOCKS) return delay(mockHotspots(q))
-  return request<Hotspot[]>('/hotspots', { method: 'POST', body: JSON.stringify(q) })
-}
+export const analyze = (q: AnalyzeQuery): Promise<AnalyzeResult> =>
+  USE_MOCKS ? delay(mockAnalyze(q)) : getJson<AnalyzeResult>('/analyze', q)
+
+export const calendarCsv = (q: AnalyzeQuery & { granularity: 'month' | 'day' }): Promise<Blob> =>
+  USE_MOCKS ? delay(new Blob([mockCalendarCsv(q)], { type: 'text/csv' })) : getBlob('/calendar.csv', q)
+
+export const hotspotsCsv = (q: AnalyzeQuery): Promise<Blob> =>
+  USE_MOCKS ? delay(new Blob([mockHotspotsCsv()], { type: 'text/csv' })) : getBlob('/hotspots.csv', q)
 
 // shortcut: fake latency so loading states are visible in the demo; drops out with the mocks.
 const delay = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 250))

@@ -1,180 +1,135 @@
-// shortcut: the whole file is a stand-in for the Go backend (POST /api/calendar, POST /api/hotspots).
-// Replace by setting VITE_USE_MOCKS=false once the backend serves FIRMS-derived counts; nothing else changes.
+// shortcut: stand-in for the backend of contract 3, built from real monthly MODIS / VIIRS S-NPP counts for four Ukrainian areas
+// (taken from the design mockup). Custom areas reuse the nearest preset scaled by area. Set VITE_USE_MOCKS=false once the API is up.
 import type { Polygon } from 'geojson'
-import { areaKm2, bbox, centroid, pointInPolygon } from '@/shared/lib/geo'
-import { median } from '@/shared/lib/stats'
-import type { CalendarCell, CalendarQuery, Hotspot, HotspotQuery, Source } from './fires'
+import { areaKm2, bboxPolygon, centroid } from '@/shared/lib/geo'
+import { median, quantile } from '@/shared/lib/stats'
+import data from './mock-calendar.json'
+import type { AnalyzeQuery, AnalyzeResult, Anomaly, Meta, MonthlyRow } from './types'
 
-type Event = { year: number; month: number; extra: number; at: [number, number]; days?: [number, number] }
-type Profile = {
-  id: string
-  /** Mean monthly hotspots (harmonized, MODIS-equivalent) Jan..Dec for the reference area. */
-  season: number[]
-  refAreaKm2: number
-  trendPerYear: number
-  /** Extra linear growth per year from `from` on, on top of the trend. */
-  growth?: { from: number; perYear: number }
-  /** Log-normal spread of the yearly and monthly factors. */
-  sigma: { year: number; month: number }
-  events: Event[]
-}
+type Bbox = [number, number, number, number]
+const AREAS = data.areas as unknown as Record<string, Bbox> // JSON arrays type as number[]
+const BASELINE: [number, number] = [2001, 2025]
+const DATE_MIN = '2000-11-01'
+// The mock archive ends mid-November 2026, so that month is the incomplete "current" one.
+const DATE_MAX = '2026-11-14'
 
-// shortcut: seasonality is hand-tuned to the brief, not fitted to FIRMS archives; the backend replaces it with real counts.
-const PROFILES: Record<string, Profile> = {
-  // Two peaks: spring field burning (Mar–Apr) and stubble burning after harvest (Aug–Oct).
-  ukraine: {
-    id: 'ukraine',
-    season: [160, 230, 1500, 2100, 700, 420, 1150, 1850, 1700, 1250, 400, 140],
-    refAreaKm2: 600_000,
-    trendPerYear: 0,
-    // Flat to 2015, then a steady rise, so every year from 2020 on outranks the early record.
-    growth: { from: 2016, perYear: 0.09 },
-    sigma: { year: 0.03, month: 0.08 },
-    events: [],
-  },
-  // Low background; the April 2020 forest fires in the exclusion zone stand far above the median.
-  chernobyl: {
-    id: 'chernobyl',
-    season: [0.4, 0.5, 3, 7, 4, 3, 4.5, 5, 3.5, 2, 0.5, 0.2],
-    refAreaKm2: 2_800,
-    trendPerYear: 0,
-    sigma: { year: 0.22, month: 0.3 },
-    events: [
-      { year: 2015, month: 4, extra: 60, at: [30.05, 51.45] },
-      { year: 2015, month: 8, extra: 35, at: [29.95, 51.35] },
-      { year: 2020, month: 4, extra: 520, at: [29.78, 51.3] },
-    ],
-  },
-  // Southern-hemisphere dry season: peak Jul–Oct; a large fire at the end of July 2026.
-  chilecito: {
-    id: 'chilecito',
-    season: [4, 3, 3, 4, 6, 10, 22, 34, 36, 26, 12, 7],
-    refAreaKm2: 6_400,
-    trendPerYear: 0.015,
-    sigma: { year: 0.22, month: 0.3 },
-    events: [{ year: 2026, month: 7, extra: 260, at: [-67.62, -29.08], days: [24, 31] }],
-  },
-}
-
-function pickProfile(area: Polygon): Profile {
-  const [lon, lat] = centroid(area)
-  if (lat < 0) return PROFILES.chilecito
-  const nearPlant = Math.hypot(lon - 30.1, (lat - 51.39) * 1.6) < 1.2
-  return nearPlant && areaKm2(area) < 20_000 ? PROFILES.chernobyl : PROFILES.ukraine
-}
-
-// Deterministic PRNG so the same area always gets the same series.
-function rng(seed: string) {
-  let h = 1779033703 ^ seed.length
-  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 3432918353)
-  let a = h >>> 0
-  const next = () => {
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+export function mockMeta(): Meta {
+  return {
+    coverage_bbox: [22.0, 44.0, 40.3, 52.4],
+    date_min: DATE_MIN,
+    date_max: DATE_MAX,
+    grid_step: 0.1,
+    baseline_years: BASELINE,
+    model: {
+      model_version: 'v0',
+      reference_scale: 'VIIRS_SNPP',
+      fit_years: [2012, 2021],
+      holdout_years: [2022, 2025],
+      metrics: { mape: 0.21, r2: 0.87, bias: -0.03 },
+      notes: 'Constant MODIS→VIIRS ratio per area, fitted on the 2012–2025 overlap. 2000–2002: Terra only.',
+    },
   }
-  // Clamped to ±2.2σ so one freak draw doesn't become the record month.
-  const normal = () => Math.max(-2.2, Math.min(2.2, Math.sqrt(-2 * Math.log(next() || 1e-9)) * Math.cos(2 * Math.PI * next())))
-  return { next, normal }
 }
 
-const START: Record<Source, [number, number]> = { modis: [2000, 11], harmonized: [2000, 11], viirs: [2012, 1] }
+/** Smallest preset whose box holds the centre of the aoi, and how much bigger or smaller the aoi is. */
+function pick(aoi: Polygon): { key: string; scale: number } {
+  const [lon, lat] = centroid(aoi)
+  const area = (b: Bbox) => areaKm2(bboxPolygon(b))
+  const key =
+    Object.keys(AREAS)
+      .filter((k) => k !== 'ua')
+      .filter((k) => lon >= AREAS[k][0] && lon <= AREAS[k][2] && lat >= AREAS[k][1] && lat <= AREAS[k][3])
+      .sort((a, b) => area(AREAS[a]) - area(AREAS[b]))[0] ?? 'ua'
+  return { key, scale: Math.min(1, areaKm2(aoi) / area(AREAS[key])) }
+}
 
-/** How each sensor sees the same fires: different resolution and overpass schedule. */
-function sensorFactor(source: Source, year: number, month: number): number {
-  const t = year * 12 + month
-  if (source === 'modis') {
-    if (t < 2002 * 12 + 7) return 0.55 // Terra only, before Aqua
-    if (t > 2022 * 12 + 10) return 0.82 // Terra orbit drift, fewer usable overpasses
-    return 1
+const period = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
+const inBaseline = (p: string) => +p.slice(0, 4) >= BASELINE[0] && +p.slice(0, 4) <= BASELINE[1]
+
+function classify(pct: number): Anomaly {
+  if (pct >= 95) return 'extreme'
+  if (pct >= 75) return 'high'
+  if (pct <= 10) return 'low'
+  return 'normal'
+}
+
+function monthly(aoi: Polygon): MonthlyRow[] {
+  const { key, scale } = pick(aoi)
+  const modis = data.cal.modis[key as keyof typeof data.cal.modis]
+  const viirs = data.cal.viirs[key as keyof typeof data.cal.viirs]
+  // VIIRS detections per MODIS detection over the overlap: the whole "model" of v0.
+  let v = 0
+  let mo = 0
+  for (let y = 2012; y <= 2025; y++) {
+    for (let m = 0; m < 12; m++) {
+      v += viirs[y - data.y0][m]
+      mo += modis[y - data.y0][m]
+    }
   }
-  if (source === 'viirs') {
-    let f = 3.2 // 375 m pixels resolve many small fires MODIS misses
-    if (t >= 2018 * 12 + 4) f *= 1.3 // NOAA-20 joins S-NPP
-    if (t >= 2024 * 12 + 1) f *= 1.15 // NOAA-21
-    return f
-  }
-  return 1
-}
+  const ratio = mo ? v / mo : 1
 
-function lastCompleteMonth(): [number, number] {
-  const d = new Date()
-  return d.getMonth() === 0 ? [d.getFullYear() - 1, 12] : [d.getFullYear(), d.getMonth()]
-}
-
-function series(area: Polygon, source: Source): CalendarCell[] {
-  const p = pickProfile(area)
-  const scale = areaKm2(area) / p.refAreaKm2
-  const truth = rng(p.id) // shared by all sensors: the fires that actually happened
-  const noise = rng(`${p.id}:${source}`)
-  const [endY, endM] = lastCompleteMonth()
-  const [startY, startM] = START[source]
-  const cells: Omit<CalendarCell, 'median'>[] = []
-
-  for (let y = 2000; y <= endY; y++) {
-    const growth = p.growth ? 1 + p.growth.perYear * Math.max(0, y - p.growth.from) : 1
-    const yearFactor = Math.exp(p.sigma.year * truth.normal()) * (1 + p.trendPerYear * (y - 2000)) * growth
+  const rows: Omit<MonthlyRow, 'median' | 'z' | 'pct' | 'anomaly'>[] = []
+  for (let i = 0; i < modis.length; i++) {
+    const y = data.y0 + i
     for (let m = 1; m <= 12; m++) {
-      const monthFactor = Math.exp(p.sigma.month * truth.normal())
-      const sensorNoise = Math.exp((source === 'harmonized' ? 0.05 : 0.18) * noise.normal())
-      if (y * 12 + m < startY * 12 + startM || y * 12 + m > endY * 12 + endM) continue
-      const event = p.events.find((e) => e.year === y && e.month === m)?.extra ?? 0
-      const fires = (p.season[m - 1] * yearFactor * monthFactor + event) * scale
-      cells.push({ year: y, month: m, count: Math.round(fires * sensorFactor(source, y, m) * sensorNoise) })
+      const p = period(y, m)
+      if (p < DATE_MIN.slice(0, 7) || p > DATE_MAX.slice(0, 7)) continue
+      const modisRaw = Math.round(modis[i][m - 1] * scale)
+      const viirsRaw = y >= 2012 ? Math.round(viirs[i][m - 1] * scale) : 0
+      const count = y >= 2012 ? viirsRaw : modisRaw * ratio
+      rows.push({ period: p, count_h: +count.toFixed(1), frp_h: +(count * 11.6).toFixed(1), modis_raw: modisRaw, viirs_raw: viirsRaw })
     }
   }
 
-  // The baseline for a month is the same month in the other years, so the month never pulls its own median.
-  return cells.map((c) => ({
-    ...c,
-    median: median(cells.filter((o) => o.month === c.month && o.year !== c.year).map((o) => o.count)),
-  }))
-}
-
-export function mockCalendar(q: CalendarQuery): CalendarCell[] {
-  return series(q.area, q.source).filter((c) => c.year >= q.from && c.year <= q.to)
-}
-
-function randomPointIn(area: Polygon, r: ReturnType<typeof rng>): [number, number] {
-  const [w, s, e, n] = bbox(area)
-  for (let i = 0; i < 200; i++) {
-    const lon = w + r.next() * (e - w)
-    const lat = s + r.next() * (n - s)
-    if (pointInPolygon(lon, lat, area)) return [lon, lat]
-  }
-  return centroid(area)
-}
-
-// shortcut: points are capped at 800 per month for map performance; the backend should cluster or tile above that.
-export function mockHotspots(q: HotspotQuery): Hotspot[] {
-  const cell = series(q.area, q.source).find((c) => c.year === q.year && c.month === q.month)
-  if (!cell?.count) return []
-  const p = pickProfile(q.area)
-  const r = rng(`${p.id}:${q.source}:${q.year}-${q.month}`)
-  const n = Math.min(cell.count, 800)
-  const [w, s, e, nn] = bbox(q.area)
-  const spread = Math.max(e - w, nn - s) * 0.025
-  const event = p.events.find((ev) => ev.year === q.year && ev.month === q.month)
-  const eventShare = event ? event.extra / (event.extra + p.season[q.month - 1]) : 0
-  const centers = Array.from({ length: Math.max(1, Math.min(14, Math.round(n / 30))) }, () => randomPointIn(q.area, r))
-  const daysInMonth = new Date(q.year, q.month, 0).getDate()
-
-  return Array.from({ length: n }, () => {
-    const inEvent = event && r.next() < eventShare
-    const [cx, cy] = inEvent ? event.at : centers[Math.floor(r.next() * centers.length)]
-    const sigma = inEvent ? spread * 0.25 : spread
-    let lon = cx + r.normal() * sigma
-    let lat = cy + r.normal() * sigma
-    if (!pointInPolygon(lon, lat, q.area)) [lon, lat] = [cx, cy]
-    const [d0, d1] = inEvent && event.days ? event.days : [1, daysInMonth]
-    const day = Math.min(daysInMonth, d0 + Math.floor(r.next() * (d1 - d0 + 1)))
-    const hour = [1, 2, 10, 11, 13, 14][Math.floor(r.next() * 6)]
-    return {
-      lat: +lat.toFixed(4),
-      lon: +lon.toFixed(4),
-      acquired: new Date(Date.UTC(q.year, q.month - 1, day, hour, Math.floor(r.next() * 60))).toISOString(),
-      frp: +(Math.exp(2.3 + r.normal() * 0.8) * (inEvent ? 3 : 1)).toFixed(1),
-    }
+  return rows.map((r) => {
+    const base = rows.filter((o) => o.period.slice(5) === r.period.slice(5) && inBaseline(o.period)).map((o) => o.count_h)
+    const mean = base.reduce((a, b) => a + b, 0) / base.length
+    const sd = Math.sqrt(base.reduce((a, b) => a + (b - mean) ** 2, 0) / base.length)
+    const pct = Math.round((100 * (base.filter((b) => b < r.count_h).length + base.filter((b) => b === r.count_h).length / 2)) / base.length)
+    return { ...r, median: median(base), z: sd ? +((r.count_h - mean) / sd).toFixed(2) : 0, pct, anomaly: classify(pct) }
   })
 }
+
+export function mockAnalyze(q: AnalyzeQuery): AnalyzeResult {
+  const rows = monthly(q.aoi)
+  const inRange = rows.filter((r) => r.period >= q.from.slice(0, 7) && r.period <= q.to.slice(0, 7))
+  const cur = rows.at(-1)!
+  const years = new Map<number, number>()
+  for (const r of rows.filter((o) => inBaseline(o.period))) years.set(+r.period.slice(0, 4), (years.get(+r.period.slice(0, 4)) ?? 0) + r.count_h)
+  const area = areaKm2(q.aoi)
+  return {
+    area_km2: +area.toFixed(1),
+    cells: Math.max(1, Math.round(area / 80)), // a 0.1° cell over Ukraine is ~80 km²
+    monthly: rows,
+    daily: [], // shortcut: the mock has monthly counts only
+    current_month: {
+      period: cur.period,
+      count_h: cur.count_h,
+      median: cur.median,
+      ratio: cur.median ? +(cur.count_h / cur.median).toFixed(2) : null,
+      pct: cur.pct,
+      anomaly: cur.anomaly,
+      days_observed: +DATE_MAX.slice(8),
+    },
+    top_years: [...years].map(([year, count_h]) => ({ year, count_h: +count_h.toFixed(1) })).sort((a, b) => b.count_h - a.count_h),
+    seasonality: Array.from({ length: 12 }, (_, i) => {
+      const base = rows.filter((r) => +r.period.slice(5) === i + 1 && inBaseline(r.period)).map((r) => r.count_h)
+      return { month: i + 1, median: median(base), p25: quantile(base, 0.25), p75: quantile(base, 0.75) }
+    }),
+    totals: {
+      count_h: +inRange.reduce((a, r) => a + r.count_h, 0).toFixed(1),
+      hotspots_raw: inRange.reduce((a, r) => a + r.modis_raw + r.viirs_raw, 0),
+    },
+  }
+}
+
+export function mockCalendarCsv(q: AnalyzeQuery & { granularity: 'month' | 'day' }): string {
+  if (q.granularity === 'day') return 'date,count_h,frp_h,modis_raw,viirs_raw\n'
+  const cols = ['period', 'count_h', 'frp_h', 'modis_raw', 'viirs_raw', 'median', 'z', 'pct', 'anomaly'] as const
+  const rows = mockAnalyze(q).monthly.filter((r) => r.period >= q.from.slice(0, 7) && r.period <= q.to.slice(0, 7))
+  return [cols.join(','), ...rows.map((r) => cols.map((c) => r[c]).join(','))].join('\n') + '\n'
+}
+
+// shortcut: no raw FIRMS points in the mock; the real file comes from POST /hotspots.csv.
+export const mockHotspotsCsv = () =>
+  'latitude,longitude,acq_date,acq_time,satellite,instrument,confidence,frp,daynight,type,product\n'

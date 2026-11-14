@@ -13,6 +13,11 @@ export function circlePolygon(lat: number, lon: number, km: number, steps = 48):
   return { type: 'Polygon', coordinates: [[...ring, ring[0]]] }
 }
 
+/** [west, south, east, north] → closed rectangle ring. */
+export function bboxPolygon([w, s, e, n]: [number, number, number, number]): Polygon {
+  return { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] }
+}
+
 /** [west, south, east, north] of the outer ring. */
 export function bbox(p: Polygon): [number, number, number, number] {
   const xs = p.coordinates[0].map((c) => c[0])
@@ -25,19 +30,7 @@ export function centroid(p: Polygon): [number, number] {
   return [(w + e) / 2, (s + n) / 2]
 }
 
-/** Ray casting on the outer ring; holes are ignored. */
-export function pointInPolygon(lon: number, lat: number, p: Polygon): boolean {
-  const ring = p.coordinates[0]
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i]
-    const [xj, yj] = ring[j]
-    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
-  }
-  return inside
-}
-
-/** Approximate area in km² (equirectangular shoelace), enough to scale mock counts. */
+/** Approximate area in km² (equirectangular shoelace), enough for labels and mock scaling. */
 export function areaKm2(p: Polygon): number {
   const ring = p.coordinates[0]
   const lat0 = (centroid(p)[1] * Math.PI) / 180

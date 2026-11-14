@@ -1,1 +1,1 @@
-export { BurnCalendar, type Selection } from './ui/BurnCalendar'
+export { BurnCalendar, type CalendarMode } from './ui/BurnCalendar'

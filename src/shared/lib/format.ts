@@ -2,12 +2,10 @@ export const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
+export const MONTHS_SHORT = MONTHS.map((m) => m.slice(0, 3))
 
 const nf = new Intl.NumberFormat('en-US')
 export const fmt = (n: number) => nf.format(Math.round(n))
 
-export const monthName = (m: number) => MONTHS[m - 1]
-export const monthShort = (m: number) => MONTHS[m - 1].slice(0, 3)
-
-/** Signed percentage with a real minus sign, e.g. "+312%" or "−40%". */
-export const signedPct = (x: number) => `${x > 0 ? '+' : x < 0 ? '−' : ''}${Math.abs(x).toFixed(Math.abs(x) < 10 ? 1 : 0)}%`
+/** "2020-04" → { year: 2020, month: 4 } */
+export const parsePeriod = (p: string) => ({ year: +p.slice(0, 4), month: +p.slice(5, 7) })

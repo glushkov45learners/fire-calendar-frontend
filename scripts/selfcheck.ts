@@ -1,57 +1,63 @@
-// Run: node scripts/selfcheck.ts — asserts for the geometry, stats and CSV helpers.
+// Run: node scripts/selfcheck.ts — asserts for geometry, stats, the mock API (contract 3 shape) and the series builder.
 import assert from 'node:assert/strict'
 import { registerHooks } from 'node:module'
-import { areaKm2, circlePolygon, pointInPolygon } from '../src/shared/lib/geo.ts'
-import { logBin, logBinEdges, median, slope } from '../src/shared/lib/stats.ts'
-import { toCsv } from '../src/features/export-csv/lib/toCsv.ts'
 
-const zone = circlePolygon(51.389, 30.099, 30)
-assert.ok(Math.abs(areaKm2(zone) - Math.PI * 30 * 30) < 40, 'circle area')
-assert.ok(pointInPolygon(30.099, 51.389, zone) && !pointInPolygon(31, 51.389, zone), 'point in polygon')
-
-assert.equal(median([3, 1, 2]), 2)
-assert.equal(median([4, 1, 2, 3]), 2.5)
-assert.equal(median([]), 0)
-assert.equal(slope([[2000, 10], [2001, 12], [2002, 14]]), 2)
-
-assert.equal(logBin(0, 3, 100, 8), 0)
-assert.equal(logBin(100, 3, 100, 8), 8)
-assert.equal(logBin(3, 3, 100, 8), 1)
-assert.equal(logBin(5, 5, 5, 8), 8)
-// Every edge must land in its own bin, and the count just below it in the previous one.
-const edges = logBinEdges(120, 5000, 8)
-edges.forEach((e, i) => {
-  assert.equal(logBin(e, 120, 5000, 8), i + 1, `edge ${e}`)
-  if (i) assert.equal(logBin(e - 1, 120, 5000, 8), i, `below edge ${e}`)
-})
-
-assert.equal(
-  toCsv([{ year: 2020, month: 4, count: 7, median: 2 }], 'Chilecito, La Rioja', 'viirs'),
-  'region,source,year,month,count,median\n"Chilecito, La Rioja",viirs,2020,4,7,2\n',
-)
-// src modules import through '@/' without extensions; map both for node, then load them after the hook is in place.
+// src modules import through '@/' without extensions, and the mock imports JSON; map all three for node.
 registerHooks({
   resolve(spec, ctx, next) {
     if (spec.startsWith('@/')) spec = new URL(`../src/${spec.slice(2)}`, import.meta.url).href
     if (/^(file:|\.)/.test(spec) && !/\.\w+$/.test(spec)) spec += '.ts'
-    return next(spec, ctx)
+    const r = next(spec, ctx)
+    return r.url.endsWith('.json') ? { ...r, importAttributes: { type: 'json' } } : r
   },
 })
-const { describeAnomaly } = await import('../src/widgets/anomaly-chart/lib/describeAnomaly.ts')
-const { summarize } = await import('../src/widgets/summary-cards/lib/summarize.ts')
-const { toRows } = await import('../src/widgets/burn-calendar/lib/toRows.ts')
 
-assert.equal(describeAnomaly(507, 7).figure, '+500') // small median: hotspots, not +7143%
-assert.equal(describeAnomaly(3, 10).unit, 'hotspots below the median')
-assert.equal(describeAnomaly(1661, 121).figure, '13.7×')
-assert.equal(describeAnomaly(2700, 1387).figure, '+95%')
+const { areaKm2, bboxPolygon, circlePolygon } = await import('../src/shared/lib/geo.ts')
+const { median, quantile } = await import('../src/shared/lib/stats.ts')
+const { mockAnalyze, mockCalendarCsv, mockMeta } = await import('../src/shared/api/mocks.ts')
+const { buildSeries } = await import('../src/entities/sensor/model/sensor.ts')
+const { findRegion, parseLatLon } = await import('../src/entities/region/model/presets.ts')
+const { summarize } = await import('../src/pages/explorer/lib/summarize.ts')
 
-const year = (y: number, n: number, months = 12) => Array.from({ length: months }, (_, i) => ({ year: y, month: i + 1, count: n, median: 0 }))
-// Annual 12, 24, 36: +12/yr on a mean of 24 is +50%; the partial 2004 must not bend it.
-assert.equal(summarize([...year(2001, 1), ...year(2002, 2), ...year(2003, 3), ...year(2004, 100, 1)]).trendPct, 50)
-assert.equal(summarize([...year(2001, 1), ...year(2002, 2)]).trendPct, null)
+assert.ok(Math.abs(areaKm2(circlePolygon(51.389, 30.099, 30)) - Math.PI * 30 * 30) < 40, 'circle area')
+assert.equal(median([3, 1, 2]), 2)
+assert.equal(median([4, 1, 2, 3]), 2.5)
+assert.equal(median([]), 0)
+assert.equal(quantile([1, 2, 3, 4, 5], 0.25), 2)
 
-assert.deepEqual(toRows([2014, 2013, 2012, 2011, 2010], (y) => y >= 2013, true).at(-1), { kind: 'gap', from: 2010, to: 2012 })
-assert.equal(toRows([2014, 2013], () => false, false).length, 2)
+assert.deepEqual(parseLatLon('50.45, 30.52'), [50.45, 30.52])
+assert.equal(parseLatLon('50.4,'), null)
+assert.equal(findRegion('donbas')?.id, 'donbas')
+assert.equal(findRegion('50.450,30.520')?.short, '25 km around point')
+assert.equal(findRegion('nope'), null)
+
+const meta = mockMeta()
+const q = { aoi: bboxPolygon([29.25, 51.1, 30.65, 51.6]), from: '2020-01-01', to: '2026-11-14' }
+const res = mockAnalyze(q)
+assert.equal(res.monthly[0].period, '2000-11', 'history starts with Terra')
+assert.equal(res.monthly.at(-1)!.period, '2026-11')
+assert.equal(res.monthly.length, 2 + 25 * 12 + 11, 'one row per month, zeros included')
+assert.equal(res.current_month.period, '2026-11')
+assert.equal(res.seasonality.length, 12)
+assert.equal(res.top_years.length, 25)
+assert.ok(res.monthly.every((r) => r.pct >= 0 && r.pct <= 100))
+// Chornobyl, April 2020: the exclusion-zone fires must stand out as extreme.
+assert.equal(res.monthly.find((r) => r.period === '2020-04')!.anomaly, 'extreme')
+assert.match(mockCalendarCsv({ ...q, granularity: 'month' }), /^period,count_h,frp_h,modis_raw,viirs_raw,median,z,pct,anomaly\n2020-01,/)
+
+const harm = buildSeries(res, meta, 'harm')
+const viirs = buildSeries(res, meta, 'viirs')
+assert.equal(harm.cells.at(-1)!.month, 10, 'calendar stops at the last complete month')
+assert.equal(harm.current.daysObserved, 14)
+assert.equal(viirs.cells.find((c) => c.year === 2011 && c.month === 6)!.value, null, 'no VIIRS before 2012')
+assert.notEqual(viirs.cells.find((c) => c.year === 2012 && c.month === 6)!.value, null)
+assert.equal(harm.cells.find((c) => c.year === 2020 && c.month === 4)!.anomaly, 'extreme')
+
+const s = summarize([
+  { year: 2020, month: 4, value: 10, median: 0 },
+  { year: 2020, month: 5, value: null, median: 0 },
+  { year: 2021, month: 4, value: 3, median: 0 },
+])
+assert.deepEqual(s, { total: 13, peakMonth: 4, topYear: 2020, best: { year: 2020, month: 4, value: 10 } })
 
 console.log('selfcheck ok')

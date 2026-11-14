@@ -1,10 +1,3 @@
-export { request, USE_MOCKS } from './client'
-export {
-  getCalendar,
-  getHotspots,
-  type CalendarCell,
-  type CalendarQuery,
-  type Hotspot,
-  type HotspotQuery,
-  type Source,
-} from './fires'
+export { ApiError, USE_MOCKS } from './client'
+export { analyze, calendarCsv, getMeta, hotspotsCsv } from './fires'
+export type { AnalyzeQuery, AnalyzeResult, Anomaly, CurrentMonth, Meta, ModelMeta, MonthlyRow } from './types'

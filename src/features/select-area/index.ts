@@ -1,2 +1,2 @@
-export { CoordinatesForm } from './ui/CoordinatesForm'
-export { DrawAreaControl } from './ui/DrawAreaControl'
+export { AreaSearch } from './ui/AreaSearch'
+export { AreaTiles } from './ui/AreaTiles'

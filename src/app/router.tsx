@@ -1,16 +1,8 @@
-import { createBrowserRouter } from 'react-router'
-import { AboutPage } from '@/pages/about'
+import { createBrowserRouter, Navigate } from 'react-router'
 import { ExplorerPage } from '@/pages/explorer'
-import { HomePage } from '@/pages/home'
-import { Layout } from './layout'
 
+// One page, as in the design: sections are reached by scrolling, state lives in the query string.
 export const router = createBrowserRouter([
-  {
-    element: <Layout />,
-    children: [
-      { path: '/', element: <HomePage /> },
-      { path: '/explorer', element: <ExplorerPage /> },
-      { path: '/about', element: <AboutPage /> },
-    ],
-  },
+  { path: '/', element: <ExplorerPage /> },
+  { path: '*', element: <Navigate to="/" replace /> },
 ])
