@@ -29,7 +29,12 @@ type Props = {
 }
 
 export function FireMap({ area, dateLabel, busy, grid, onDraw }: Props) {
-  const heat = useMemo(() => (grid.data && !grid.note ? heatCells(grid.data) : null), [grid.data, grid.note])
+  const heat = useMemo(
+    () => (grid.data && !grid.note ? heatCells(grid.data, area.whole ? null : area.geometry) : null),
+    // area.id stands for the geometry: a point area is a new object on every render, the same id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [grid.data, grid.note, area.id],
+  )
   const [hover, setHover] = useState<{ id: number; count: number; x: number; y: number } | null>(null)
   const status = grid.note ?? grid.error ?? (grid.loading ? 'Loading the grid…' : null)
 

@@ -3,7 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import * as maplibregl from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection, Polygon } from 'geojson'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import Map, { Layer, Marker, NavigationControl, Source, type MapRef, type StyleSpecification } from 'react-map-gl/maplibre'
 import { UKRAINE_BORDER, type Area } from '@/entities/aoi'
 import { DrawAreaControl } from '@/features/draw-area'
@@ -39,14 +39,32 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
   const ref = useRef<MapRef>(null)
   const box = bbox(area.geometry)
   const marks = useMemo(() => brackets(box), [box[0], box[1], box[2], box[3]]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Fit the country, then forbid zooming out past it. minZoom is reset first so the fit can zoom out after the frame grows.
-  const fitCountry = () => {
+
+  /**
+   * Zooming out stops at the whole country (minZoom from the frame's size), then the camera frames the selected area:
+   * the country for "All of Ukraine", else the area's box, kept clear of the title in the bottom-left corner.
+   */
+  const frame = (animate: boolean) => {
     const map = ref.current?.getMap()
     if (!map) return
-    map.setMinZoom(0)
-    map.fitBounds([VIEW[0], VIEW[1], VIEW[2], VIEW[3]], { padding: 0, animate: false })
-    map.setMinZoom(map.getZoom())
+    const country = map.cameraForBounds([VIEW[0], VIEW[1], VIEW[2], VIEW[3]], { padding: 0 })
+    // A frame of zero or tiny size gives a zoom outside MapLibre's range; clamp it, and skip a non-number.
+    if (country?.zoom !== undefined && Number.isFinite(country.zoom)) map.setMinZoom(Math.min(map.getMaxZoom(), Math.max(0, country.zoom)))
+    const { clientWidth: w, clientHeight: h } = map.getContainer()
+    const target = area.whole ? VIEW : box
+    // Room for the title (bottom-left) and for the callout that leaves the box's top-right corner (~260 px wide, ~50 px up) plus the map buttons.
+    const padding = area.whole
+      ? 0
+      : { top: Math.max(h * 0.12, 60), bottom: h * 0.32, left: w * 0.1, right: Math.max(w * 0.12, Math.min(320, w * 0.45)) }
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+    map.fitBounds([target[0], target[1], target[2], target[3]], { padding, maxZoom: 8, duration: animate && !reduced ? 900 : 0 })
   }
+
+  // A new area: fly to it. (Before the map has loaded there is nothing to move; onLoad frames it.)
+  useEffect(() => {
+    frame(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [area.id])
 
   return (
     <Map
@@ -64,13 +82,13 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
       dragRotate={false}
       touchPitch={false}
       cooperativeGestures
-      // The scene keeps the map's proportions, so after any resize the country fits again.
-      onResize={fitCountry}
+      // After any resize (menu collapsed, window resized) the selected area is framed again.
+      onResize={() => frame(false)}
       // No rotation from touch twist or the keyboard either; the map is a flat, north-up figure.
       onLoad={(e) => {
         e.target.touchZoomRotate.disableRotation()
         e.target.keyboard.disableRotation()
-        fitCountry()
+        frame(false)
       }}
       // shortcut: clicking a cell does nothing yet; it could later select the cell as the area.
       interactiveLayerIds={cells ? ['heat'] : []}
@@ -88,7 +106,7 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
       </Source>
       {cells && (
         <Source id="heat" type="geojson" data={cells}>
-          <Layer id="heat" type="fill" paint={{ 'fill-color': ['get', 'c'], 'fill-outline-color': '#000', 'fill-opacity': 0.95 }} />
+          <Layer id="heat" type="fill" paint={{ 'fill-color': ['get', 'c'], 'fill-outline-color': '#000', 'fill-opacity': area.whole ? 0.95 : ['case', ['get', 'in'], 0.95, 0.22] }} />
         </Source>
       )}
       <Source id="border" type="geojson" data={UKRAINE_BORDER}>

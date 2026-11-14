@@ -1,6 +1,6 @@
 import type { Feature, FeatureCollection, LineString, Polygon } from 'geojson'
 import type { GridCell } from '@/shared/api'
-import { cellBounds, type Bbox } from '@/shared/lib/geo'
+import { bbox, cellBounds, inBbox, pointInGeometry, type Bbox, type Geometry } from '@/shared/lib/geo'
 import { ramp, SEQ } from '@/shared/lib/ramp'
 
 /** The extent of the mockup's map: Ukraine with a margin. [west, south, east, north] */
@@ -12,14 +12,21 @@ export const VIEW: Bbox = [22.0, 44.0, 40.5, 52.5]
  */
 export const PAN_BOUNDS: Bbox = [VIEW[0] - 0.5, VIEW[1] - 1.5, VIEW[2] + 0.5, VIEW[3] + 0.3]
 
-/** Squares of the 0.1° grid, coloured on SEQ by log(count + 1) against the largest count in the data. */
-export function heatCells(cells: GridCell[]): { fc: FeatureCollection<Polygon>; max: number } {
+/**
+ * Squares of the 0.1° grid, coloured on SEQ by log(count + 1) against the largest count in the data.
+ * `in` marks cells whose centre is inside `area` (the backend's rule for which cells an area holds), so the map can dim the rest.
+ */
+export function heatCells(cells: GridCell[], area: Geometry | null): { fc: FeatureCollection<Polygon>; max: number } {
   const max = Math.max(1, ...cells.map((c) => c.count))
+  const box = area && bbox(area)
   const features = cells.map((c): Feature<Polygon> => {
     const [w, s, e, n] = cellBounds(c.cell_id)
+    const cx = (w + e) / 2
+    const cy = (s + n) / 2
+    const inside = !area || (inBbox(cx, cy, box!) && pointInGeometry(cx, cy, area))
     return {
       type: 'Feature',
-      properties: { id: c.cell_id, count: c.count, c: ramp(SEQ, Math.log(c.count + 1) / Math.log(max + 1)) },
+      properties: { id: c.cell_id, count: c.count, in: inside, c: ramp(SEQ, Math.log(c.count + 1) / Math.log(max + 1)) },
       geometry: { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
     }
   })
