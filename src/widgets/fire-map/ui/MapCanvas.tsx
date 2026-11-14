@@ -8,7 +8,7 @@ import Map, { Layer, Marker, NavigationControl, Source, type MapRef, type StyleS
 import { UKRAINE_BORDER, type Area } from '@/entities/aoi'
 import { DrawAreaControl } from '@/features/draw-area'
 import { bbox } from '@/shared/lib/geo'
-import { brackets, graticule, VIEW } from '../lib/layers'
+import { brackets, graticule, PAN_BOUNDS, VIEW } from '../lib/layers'
 
 // Vite bundles maplibre-gl, which breaks its own import.meta.url lookup of the worker file.
 // This instance is passed to <Map mapLib>, since react-map-gl would otherwise load a second copy.
@@ -39,14 +39,26 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
   const ref = useRef<MapRef>(null)
   const box = bbox(area.geometry)
   const marks = useMemo(() => brackets(box), [box[0], box[1], box[2], box[3]]) // eslint-disable-line react-hooks/exhaustive-deps
-  const fitCountry = () => ref.current?.fitBounds([VIEW[0], VIEW[1], VIEW[2], VIEW[3]], { padding: 8, animate: false })
+  // Fit the country, then forbid zooming out past it. minZoom is reset first so the fit can zoom out after the frame grows.
+  const fitCountry = () => {
+    const map = ref.current?.getMap()
+    if (!map) return
+    map.setMinZoom(0)
+    map.fitBounds([VIEW[0], VIEW[1], VIEW[2], VIEW[3]], { padding: 0, animate: false })
+    map.setMinZoom(map.getZoom())
+  }
 
   return (
     <Map
       ref={ref}
       mapLib={maplibregl}
       mapStyle={STYLE}
-      initialViewState={{ bounds: VIEW, fitBoundsOptions: { padding: 8 } }}
+      initialViewState={{ bounds: VIEW, fitBoundsOptions: { padding: 0 } }}
+      // Kept around Ukraine: panning stops a little past the country (more in the south), zooming out stops at the country, one world copy.
+      maxBounds={PAN_BOUNDS}
+      maxZoom={9}
+      renderWorldCopies={false}
+      maxPitch={0}
       style={{ width: '100%', height: '100%' }}
       attributionControl={false}
       dragRotate={false}
@@ -54,6 +66,12 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
       cooperativeGestures
       // The scene keeps the map's proportions, so after any resize the country fits again.
       onResize={fitCountry}
+      // No rotation from touch twist or the keyboard either; the map is a flat, north-up figure.
+      onLoad={(e) => {
+        e.target.touchZoomRotate.disableRotation()
+        e.target.keyboard.disableRotation()
+        fitCountry()
+      }}
       // shortcut: clicking a cell does nothing yet; it could later select the cell as the area.
       interactiveLayerIds={cells ? ['heat'] : []}
       onMouseMove={(e) => {

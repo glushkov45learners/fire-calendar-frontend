@@ -6,6 +6,12 @@ import { ramp, SEQ } from '@/shared/lib/ramp'
 /** The extent of the mockup's map: Ukraine with a margin. [west, south, east, north] */
 export const VIEW: Bbox = [22.0, 44.0, 40.5, 52.5]
 
+/**
+ * How far the camera may pan: VIEW plus a margin, widest in the south, so a zoomed-in user can drag Crimea and the coast
+ * up from under the title and the bottom fade. Zooming out stops at VIEW (minZoom is set from the fit).
+ */
+export const PAN_BOUNDS: Bbox = [VIEW[0] - 0.5, VIEW[1] - 1.5, VIEW[2] + 0.5, VIEW[3] + 0.3]
+
 /** Squares of the 0.1° grid, coloured on SEQ by log(count + 1) against the largest count in the data. */
 export function heatCells(cells: GridCell[]): { fc: FeatureCollection<Polygon>; max: number } {
   const max = Math.max(1, ...cells.map((c) => c.count))
