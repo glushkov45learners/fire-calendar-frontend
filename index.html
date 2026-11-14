@@ -1,14 +1,28 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark" data-theme="kiln">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>app</title>
+    <meta name="description" content="Burn activity calendar from NASA FIRMS hotspots, MODIS and VIIRS harmonized, 2000 to today." />
+    <title>Burn calendar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://api.fontshare.com/v2/css?f[]=boska@500&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Apply the saved direction before first paint, so the theme never flashes.
+      try {
+        const t = localStorage.getItem('theme')
+        if (t === 'kiln' || t === 'console') document.documentElement.dataset.theme = t
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/app/main.tsx"></script>
   </body>
 </html>
-

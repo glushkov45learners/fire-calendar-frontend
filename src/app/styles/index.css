@@ -1,3 +1,8 @@
+/* Hallmark · shape: app screen (explorer, about) + one splash screen at / (swap from draw c77c08 Narrative Workflow: the brief asks for a single presentation hero) · genre: atmospheric · theme: Kiln (deal 1/3, seed scientific-operational-fire-hotspot-4a3f·d567a792·2026-11-14·r0) + Console (by request: second direction) · job: try · draw: c77c08
+ * hero: Stage (head left, Where map and When strip right) · nav: edge-aligned top bar · footer: none (app shell) · imagery: the product (calendar strip, dotted map) · signature: the burning calendar, years by months · kiln: ember · console: graphite
+ * axes: dark/high-contrast-serif/warm + dark/grotesk-sans/chromatic-amber · posture: full-palette / restrained · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · dismissed F18 · data-slot here is shadcn's component marker on button and select-value, not an image slot */
+/* Hallmark · pre-emit critique: P4 H4 E3 S4 R4 V4 · weakest: E, shadcn primitives ship transition-all and fixed h-8, patched to colour transitions and a --ctl-h density token */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -6,21 +11,22 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
+    --font-sans: var(--face-body);
+    --font-heading: var(--face-display);
+    --font-display: var(--face-display);
+    --font-measure: var(--face-measure);
+    --font-figure: var(--face-figure);
+    --color-paper: var(--paper);
+    --color-paper-2: var(--paper-2);
+    --color-paper-3: var(--paper-3);
+    --color-ink: var(--ink);
+    --color-ink-2: var(--ink-2);
+    --color-ink-3: var(--ink-3);
+    --color-rule: var(--rule);
+    --color-rule-2: var(--rule-2);
+    --color-signal: var(--signal);
+    --color-signal-ink: var(--signal-ink);
+    --color-cool: var(--cool);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -43,88 +49,215 @@
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
     --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+    --radius-panel: var(--radius-panel);
 }
 
-:root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+/* Two directions, one set of widgets. Each block is the whole token set: palette, faces, density, colour scale. */
+:root,
+[data-theme="kiln"] {
+    color-scheme: dark;
+    --paper: oklch(13% 0.012 40);
+    --paper-2: oklch(17.5% 0.016 40);
+    --paper-3: oklch(22% 0.018 40);
+    --ink: oklch(94% 0.02 80);
+    --ink-2: oklch(84% 0.025 70);
+    --ink-3: oklch(72% 0.03 60);
+    --rule: oklch(96% 0.01 80 / 0.12);
+    --rule-2: oklch(96% 0.01 80 / 0.28);
+    --signal: oklch(70% 0.2 45);
+    --signal-ink: oklch(14% 0.02 40);
+    --cool: oklch(84% 0.025 70);
+    --focus: oklch(76% 0.19 56);
+    --bad: oklch(72% 0.15 27);
+    --face-display: "Boska", "Iowan Old Style", Georgia, serif;
+    --face-body: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    --face-measure: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    --face-figure: "Boska", "Iowan Old Style", Georgia, serif;
+    --tracking-display: -0.02em;
+    /* density: airy */
+    --ctl-h: 40px;
+    --cell-h: 20px;
+    --gap-panel: 20px;
+    --pad-panel: 24px;
+    --radius: 999px;
+    --radius-panel: 20px;
+    /* inferno, low to high; colour-blind safe and monotone in lightness */
+    --scale-1: #320a5e;
+    --scale-2: #57106e;
+    --scale-3: #7d1d6c;
+    --scale-4: #a52c60;
+    --scale-5: #cb4149;
+    --scale-6: #e8602b;
+    --scale-7: #f98c0a;
+    --scale-8: #fcffa4;
+    /* hotspot age on the map, newest hottest (rgb: MapLibre reads these) */
+    --age-1: rgb(252 255 164);
+    --age-2: rgb(249 140 10);
+    --age-3: rgb(203 65 73);
+    --age-4: rgb(125 29 108);
+    --map-line: rgb(232 216 196);
 }
 
-.dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+[data-theme="console"] {
+    --paper: oklch(17% 0.008 250);
+    --paper-2: oklch(21% 0.009 250);
+    --paper-3: oklch(13.5% 0.007 250);
+    --ink: oklch(95% 0.005 250);
+    --ink-2: oklch(83% 0.008 250);
+    --ink-3: oklch(71% 0.01 250);
+    --rule: oklch(31% 0.01 250);
+    --rule-2: oklch(42% 0.012 250);
+    --signal: oklch(82% 0.15 80);
+    --signal-ink: oklch(18% 0.04 75);
+    --cool: oklch(77% 0.12 245);
+    --focus: oklch(82% 0.15 80);
+    --bad: oklch(70% 0.17 25);
+    --face-display: "Host Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --face-body: "Host Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --face-measure: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+    --face-figure: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+    --tracking-display: -0.03em;
+    /* density: compact */
+    --ctl-h: 32px;
+    --cell-h: 15px;
+    --gap-panel: 1px;
+    --pad-panel: 14px;
+    --radius: 6px;
+    --radius-panel: 10px;
+    /* cividis, low to high */
+    --scale-1: #0d2d5f;
+    --scale-2: #243f6c;
+    --scale-3: #45526c;
+    --scale-4: #63666f;
+    --scale-5: #7e7b76;
+    --scale-6: #9c9374;
+    --scale-7: #c4b56c;
+    --scale-8: #fee838;
+    --age-1: rgb(254 232 56);
+    --age-2: rgb(196 181 108);
+    --age-3: rgb(126 123 118);
+    --age-4: rgb(69 82 108);
+    --map-line: rgb(198 206 218);
+}
+
+:root,
+[data-theme] {
+    --background: var(--paper);
+    --foreground: var(--ink);
+    --card: var(--paper-2);
+    --card-foreground: var(--ink);
+    --popover: var(--paper-2);
+    --popover-foreground: var(--ink);
+    --primary: var(--signal);
+    --primary-foreground: var(--signal-ink);
+    --secondary: var(--paper-3);
+    --secondary-foreground: var(--ink);
+    --muted: var(--paper-3);
+    --muted-foreground: var(--ink-3);
+    --accent: var(--paper-3);
+    --accent-foreground: var(--ink);
+    --destructive: var(--bad);
+    --border: var(--rule);
+    --input: color-mix(in oklab, var(--ink-3) 62%, var(--paper-2));
+    --ring: var(--focus);
+    --dur-short: 220ms;
+    --dur-long: 420ms;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+    html,
+    body {
+        overflow-x: clip;
     }
-  html {
-    @apply font-sans;
+    html {
+        scrollbar-color: var(--ink-3) var(--paper);
+    }
+    body {
+        @apply bg-background text-foreground font-sans antialiased;
+        line-height: 1.55;
+    }
+    h1,
+    h2,
+    h3 {
+        font-family: var(--face-display);
+        font-weight: 500;
+        letter-spacing: var(--tracking-display);
+        line-height: 1.05;
+        overflow-wrap: break-word;
+        min-width: 0;
+        text-wrap: balance;
+    }
+    :focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+    }
+    ::selection {
+        background: color-mix(in oklab, var(--signal) 30%, transparent);
+    }
+}
+
+.num {
+    font-family: var(--face-measure);
+    font-variant-numeric: tabular-nums slashed-zero;
+}
+.figure {
+    font-family: var(--face-figure);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    font-variant-numeric: lining-nums tabular-nums;
+    line-height: 1;
+}
+/* Kiln wells float on the ground; Console panels are one surface cut by hairlines. */
+.panel {
+    background: var(--paper-2);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-panel);
+    padding: var(--pad-panel);
+    min-width: 0;
+}
+[data-theme="console"] .panels {
+    background: var(--rule);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-panel);
+    overflow: clip;
+}
+[data-theme="console"] .panels > .panel {
+    border: 0;
+    border-radius: 0;
+}
+
+/* MapLibre and mapbox-gl-draw controls: take the theme's surfaces. */
+.maplibregl-ctrl-group {
+    background: var(--paper-2) !important;
+    border: 1px solid var(--rule-2);
+}
+.maplibregl-ctrl-group button + button {
+    border-top-color: var(--rule) !important;
+}
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon,
+.maplibregl-ctrl-group button.mapbox-gl-draw_ctrl-draw-btn {
+    filter: invert(1);
+}
+.maplibregl-ctrl-attrib {
+    background: color-mix(in oklab, var(--paper) 85%, transparent) !important;
+}
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib * {
+    color: var(--ink-2) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }

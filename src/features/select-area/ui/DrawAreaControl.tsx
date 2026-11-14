@@ -16,10 +16,12 @@ type DrawEvents = { on(e: string, f: () => void): void; off(e: string, f: () => 
 
 type Props = {
   onChange: (polygon: Polygon | null) => void
+  /** false once the area comes from elsewhere (a preset, typed coordinates): the drawn shape is cleared. */
+  active?: boolean
   position?: ControlPosition
 }
 
-export function DrawAreaControl({ onChange, position = 'top-left' }: Props) {
+export function DrawAreaControl({ onChange, active = true, position = 'top-left' }: Props) {
   const onChangeRef = useRef(onChange)
   useEffect(() => {
     onChangeRef.current = onChange
@@ -36,6 +38,15 @@ export function DrawAreaControl({ onChange, position = 'top-left' }: Props) {
     const geometry = draw.getAll().features.at(-1)?.geometry
     onChangeRef.current(geometry?.type === 'Polygon' ? geometry : null)
   }).current
+
+  useEffect(() => {
+    if (active) return
+    try {
+      draw.deleteAll()
+    } catch {
+      // not attached to the map yet: nothing drawn to clear
+    }
+  }, [active, draw])
 
   useControl(
     () => draw as unknown as IControl,
