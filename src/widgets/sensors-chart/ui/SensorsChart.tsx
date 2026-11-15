@@ -4,16 +4,22 @@ import { scaleName } from '@/entities/meta'
 import type { Meta, MonthlyRow } from '@/shared/api'
 import { AQUA_JOINS_YEAR, VIIRS_START_YEAR } from '@/shared/config'
 import { fmt } from '@/shared/lib/format'
+import { useMediaQuery } from '@/shared/lib/use-media-query'
 import { SpecList } from '@/shared/ui/spec-list'
 
 type Props = { rows: MonthlyRow[] | null; meta: Meta | null }
 
-const W = 760
-const H = 240
+/** The chart's own units. Phones get a narrower box, so the same 11-unit labels come out about twice as large on screen. */
+const WIDE = { W: 760, H: 240 }
+const NARROW = { W: 400, H: 250 }
 const L = 4
 const R = 104
-const T = 16
+const T = 26
 const B = 28
+/** Vertical room one label needs. */
+const LINE = 14
+/** Year ticks closer than this to an already placed one are dropped. */
+const TICK_GAP = 3
 
 const STYLE: Record<RecordKind, { label: string; stroke: string; width: number; dash?: string; hi?: boolean }> = {
   harm: { label: 'Harmonized', stroke: '#fff', width: 2, hi: true },
@@ -23,6 +29,7 @@ const STYLE: Record<RecordKind, { label: string; stroke: string; width: number; 
 
 /** Yearly totals over the baseline years: the raw sensors' steps, and the harmonized line that removes them. */
 export function SensorsChart({ rows, meta }: Props) {
+  const { W, H } = useMediaQuery('(max-width: 720px)') ? NARROW : WIDE
   if (!rows || !meta) return <Frame copy="Loading the record…" />
   const [b0, b1] = meta.baseline_years
   const years = Array.from({ length: b1 - b0 + 1 }, (_, i) => b0 + i)
@@ -40,14 +47,17 @@ export function SensorsChart({ rows, meta }: Props) {
   const X = (i: number) => L + (i / (years.length - 1)) * (W - L - R)
   const Y = (v: number) => T + (1 - v / max) * (H - T - B)
   const path = (a: (number | null)[]) => a.map((v, i) => (v === null ? '' : `${i === 0 || a[i - 1] === null ? 'M' : 'L'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`)).join('')
-  // End labels, pushed apart so they never overlap.
-  const ends = series.map((s) => ({ k: s.k, y: Y(s.values.at(-1) ?? 0) })).sort((a, b) => a.y - b.y)
-  ends.forEach((e, i) => i && (e.y = Math.max(e.y, ends[i - 1].y + 14)))
+  // End labels: pushed apart downwards, then back up from the axis, so they neither overlap nor leave the plot.
+  const ends = series.map((s) => ({ k: s.k, y: Y(s.values.at(-1) ?? 0) + 4 })).sort((a, b) => a.y - b.y)
+  ends.forEach((e, i) => i && (e.y = Math.max(e.y, ends[i - 1].y + LINE)))
+  for (let i = ends.length - 1, floor = H - B - 4; i >= 0; i--, floor -= LINE) ends[i].y = Math.min(ends[i].y, floor)
   const marks = [
     { year: AQUA_JOINS_YEAR, label: 'Aqua joins Terra' },
     { year: VIIRS_START_YEAR, label: 'VIIRS S-NPP begins' },
   ]
-  const ticks = [b0, AQUA_JOINS_YEAR, VIIRS_START_YEAR, Math.round((VIIRS_START_YEAR + b1) / 2), b1]
+  // The sensor years and the last year always get a tick; the first year and the midpoint only where there is room.
+  const ticks = [AQUA_JOINS_YEAR, VIIRS_START_YEAR, b1]
+  for (const y of [b0, Math.round((VIIRS_START_YEAR + b1) / 2)]) if (ticks.every((t) => Math.abs(t - y) >= TICK_GAP)) ticks.push(y)
   const m = meta.model
   const scale = scaleName(meta)
   const span = (ys: number[]) => (ys.length ? `${ys[0]}–${ys.at(-1)}` : 'n/a')
@@ -71,7 +81,6 @@ export function SensorsChart({ rows, meta }: Props) {
             Industrial sources (FIRMS type 2 and 3: plants, gas flares, offshore) are excluded from the harmonized series, but they are in the
             raw hotspots CSV.
           </p>
-          {m.notes && <p className="hint">{m.notes}</p>}
         </>
       }
       spec={[
@@ -87,14 +96,14 @@ export function SensorsChart({ rows, meta }: Props) {
         <svg className="lines" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Detections per year, ${b0}–${b1}: MODIS raw, VIIRS S-NPP raw and harmonized`}>
           <path d={`M${L} ${H - B + 0.5}H${W - R}`} stroke="rgba(240,240,250,.3)" />
           {ticks.map((y) => (
-            <text key={y} x={X(y - b0)} y={H - 8} textAnchor={y === b0 ? 'start' : 'middle'}>
+            <text key={y} x={X(y - b0)} y={H - 8} textAnchor={y === b0 ? 'start' : y === b1 ? 'end' : 'middle'}>
               {y}
             </text>
           ))}
           {marks.map((mk, i) => (
             <g key={mk.year}>
               <path d={`M${X(mk.year - b0)} ${T}V${H - B}`} stroke="rgba(240,240,250,.4)" strokeDasharray="2 4" />
-              <text x={X(mk.year - b0) + 6} y={T + 4 + i * 14}>
+              <text x={X(mk.year - b0) + 6} y={T + 10 + i * LINE}>
                 {mk.label}
               </text>
             </g>
@@ -103,11 +112,12 @@ export function SensorsChart({ rows, meta }: Props) {
             <path key={s.k} d={path(s.values)} fill="none" stroke={STYLE[s.k].stroke} strokeWidth={STYLE[s.k].width} strokeDasharray={STYLE[s.k].dash} strokeLinejoin="round" />
           ))}
           {ends.map((e) => (
-            <text key={e.k} className={STYLE[e.k].hi ? 'hi' : undefined} x={W - R + 8} y={Math.min(e.y + 4, H - B - 2)}>
+            <text key={e.k} className={STYLE[e.k].hi ? 'hi' : undefined} x={W - R + 8} y={e.y}>
               {STYLE[e.k].label}
             </text>
           ))}
-          <text x={L} y={H - B - 6}>
+          {/* The top of the plot is the largest yearly total; the label sits above it, clear of the lines. */}
+          <text x={L} y={T - 10}>
             {fmt(max)} / yr max
           </text>
         </svg>

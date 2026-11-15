@@ -494,6 +494,19 @@
     .cal-wrap {
         position: relative;
         margin-top: 30px;
+        display: flex;
+        align-items: flex-start;
+    }
+    /* Month names and the grid are two drawings cut from one 760-unit box (38 + 722), so they scale together. */
+    .cal-wrap > .cal-months {
+        flex: 0 0 5%;
+        width: 5%;
+        min-width: 0;
+    }
+    .cal-wrap > .cal-scroll {
+        flex: 0 0 95%;
+        width: 95%;
+        min-width: 0;
     }
     .cal {
         display: block;
@@ -1011,12 +1024,41 @@
     /* 27 years in 360 px leaves 12 px cells: scroll sideways instead, with cells a finger can hit. */
     .cal-scroll {
         overflow-x: auto;
-        margin: 0 -16px;
-        padding: 0 16px;
+        margin-right: -16px;
+        padding-right: 16px;
         scrollbar-width: thin;
     }
+    /* 646 px for the 722-unit grid and 34 px for the 38-unit month column: the same scale, so the rows line up. */
     .cal-scroll .cal {
-        min-width: 680px;
+        min-width: 646px;
+    }
+    .cal-wrap > .cal-months {
+        flex: 0 0 34px;
+        width: 34px;
+    }
+    .cal-wrap > .cal-scroll {
+        flex: 1 1 0;
+        width: auto;
+    }
+    /* Phones open on the map, not on a screen and a half of controls: map, then the panel, then the chapters.
+       The stage gives up its own box so its children can be ordered together with the panel. */
+    .shell,
+    .shell.is-collapsed {
+        display: flex;
+        flex-direction: column;
+    }
+    .stage {
+        display: contents;
+    }
+    .stage > .alert,
+    .scene {
+        order: 1;
+    }
+    .panel {
+        order: 2;
+    }
+    .stage > :not(.alert, .scene) {
+        order: 3;
     }
     .cal-head {
         gap: 16px;

@@ -113,11 +113,19 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
         </div>
       </div>
       <div className="cal-wrap" ref={wrap}>
+        {/* Month names sit outside the scroller, so on phones they stay put while the years scroll sideways. */}
+        <svg className="cal cal-months" viewBox={`0 0 ${L} ${H}`} aria-hidden="true">
+          {MONTHS_SHORT.map((name, m) => (
+            <text key={name} x="0" y={T + m * ch + ch / 2 + 3}>
+              {name}
+            </text>
+          ))}
+        </svg>
         <div className="cal-scroll" ref={scroller} onScroll={() => setHover(null)}>
         <svg
           ref={svg}
-          className="cal"
-          viewBox={`0 0 ${W} ${H}`}
+          className="cal cal-grid"
+          viewBox={`${L} 0 ${W - L} ${H}`}
           role="group"
           aria-label={`Calendar of ${label}, ${from} to ${to}. Arrow keys move between months, Enter chooses one.`}
           onKeyDown={onKey}
@@ -139,9 +147,6 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
           )}
           {MONTHS_SHORT.map((name, m) => (
             <g key={name}>
-              <text x="0" y={T + m * ch + ch / 2 + 3} aria-hidden="true">
-                {name}
-              </text>
               {years.map((yr, i) => {
                 const period = `${yr}-${String(m + 1).padStart(2, '0')}`
                 const c = byPeriod.get(period)
