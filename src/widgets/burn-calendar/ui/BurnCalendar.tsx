@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { describeAnomaly, type Cell, type RecordKind } from '@/entities/analysis'
 import type { CalendarMode } from '@/features/select-calendar-mode'
-import { fmt, MONTHS_SHORT, periodLabel } from '@/shared/lib/format'
+import { fmt, MONTHS, MONTHS_SHORT, periodLabel } from '@/shared/lib/format'
 import { DIV, ramp, SEQ } from '@/shared/lib/ramp'
 
 type Props = {
@@ -51,6 +51,11 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
   const H = T + ch * 12
   const max = Math.max(1, ...cells.map((c) => c.value ?? 0))
   const label = record === 'harm' ? unit : RAW_UNIT[record]
+  // Facts for the intro: the strongest month, the month that burns most across the years, and the months without detections.
+  const known = cells.filter((c) => c.value !== null)
+  const peak = known.reduce<Cell | null>((a, c) => (!a || (c.value ?? 0) > (a.value ?? 0) ? c : a), null)
+  const perMonth = Array.from({ length: 12 }, (_, m) => known.filter((c) => c.month === m + 1).reduce((s, c) => s + (c.value ?? 0), 0))
+  const busiest = Math.max(...perMonth) > 0 ? perMonth.indexOf(Math.max(...perMonth)) : null
   // Roving tab stop: the focused cell, else the chosen month, else the latest month with data.
   // A focused cell that the period no longer shows is forgotten, or Tab would find no cell at all.
   const focused = focusKey && +focusKey.slice(0, 4) >= from && +focusKey.slice(0, 4) <= to ? focusKey : null
@@ -100,12 +105,13 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
         <div>
           <h2 id="calendar-h">Burning calendar</h2>
           <p>
-            Each cell is one month. Read across a row to see a season return year after year; read down a column to see one year of burning.
-            Choose a month to see where it burned on the map.
+            One cell per month, {known.length} in all. Rows show a season returning, columns show one year.
+            {peak && ` Peak: ${periodLabel(peak.period)}, ${fmt(peak.value ?? 0)}.`}
+            {busiest !== null && ` Busiest month overall: ${MONTHS[busiest]}.`} Choose a month to see it on the map.
           </p>
         </div>
         <div className="cal-key">
-          <span>{mode === 'count' ? `${label} per month, log scale` : `Against the ${baseline} norm for that month, z-score`}</span>
+          <span>{mode === 'count' ? `${label}, log scale` : `Z-score vs the ${baseline} norm`}</span>
           {/* Swatches shaped like the cells, not a smooth bar: the map's key next to it is a bar, and the two scales differ. */}
           <div className="swatches" aria-hidden="true">
             {Array.from({ length: KEY_STEPS }, (_, i) => (

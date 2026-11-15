@@ -11,10 +11,12 @@ type Props = { rows: MonthlyRow[] | null; meta: Meta | null }
 
 /** The chart's own units. Phones get a narrower box, so the same 11-unit labels come out about twice as large on screen. */
 /** R is the room on the right for end labels, LINE the vertical room one label needs (phone text renders larger). */
-const WIDE = { W: 760, H: 240, R: 128, LINE: 18 }
-const NARROW = { W: 400, H: 250, R: 128, LINE: 20 }
+const WIDE = { W: 760, H: 240, R: 80, LINE: 18 }
+const NARROW = { W: 400, H: 250, R: 80, LINE: 20 }
 const L = 4
-const T = 26
+/** Baseline of the first marker label, in the band above the plot; CHAR is one label character's width. */
+const MARK_ROW = 12
+const CHAR = 7
 const B = 28
 /** Year ticks closer than this to an already placed one are dropped. */
 const TICK_GAP = 3
@@ -22,7 +24,8 @@ const TICK_GAP = 3
 const STYLE: Record<RecordKind, { label: string; stroke: string; width: number; dash?: string; hi?: boolean }> = {
   harm: { label: 'Harmonized', stroke: '#fff', width: 2, hi: true },
   modis: { label: 'MODIS raw', stroke: 'rgba(240,240,250,.5)', width: 1 },
-  viirs: { label: 'VIIRS S-NPP raw', stroke: 'rgba(240,240,250,.75)', width: 1, dash: '3 3' },
+  // Equals the harmonized line from 2012 on, so it is drawn as a wide band under it and shows as a grey edge.
+  viirs: { label: 'VIIRS raw', stroke: 'rgba(240,240,250,.4)', width: 6 },
 }
 
 /** Yearly totals over the baseline years: the raw sensors' steps, and the harmonized line that removes them. */
@@ -43,16 +46,20 @@ export function SensorsChart({ rows, meta }: Props) {
 
   const max = Math.max(1, ...series.flatMap((s) => s.values.filter((v): v is number => v !== null)))
   const X = (i: number) => L + (i / (years.length - 1)) * (W - L - R)
+  // The marker labels sit in a band above the plot, so no line can run through them. They share one row unless they would touch.
+  const marks = [
+    { year: AQUA_JOINS_YEAR, label: 'Aqua joins Terra' },
+    { year: VIIRS_START_YEAR, label: 'VIIRS S-NPP begins' },
+  ]
+  const touch = X(marks[0].year - b0) + 6 + marks[0].label.length * CHAR + 10 > X(marks[1].year - b0) + 6
+  const markRow = (i: number) => MARK_ROW + (touch ? LINE * i : 0)
+  const T = markRow(marks.length - 1) + 12
   const Y = (v: number) => T + (1 - v / max) * (H - T - B)
   const path = (a: (number | null)[]) => a.map((v, i) => (v === null ? '' : `${i === 0 || a[i - 1] === null ? 'M' : 'L'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`)).join('')
   // End labels: pushed apart downwards, then back up from the axis, so they neither overlap nor leave the plot.
   const ends = series.map((s) => ({ k: s.k, y: Y(s.values.at(-1) ?? 0) + 4 })).sort((a, b) => a.y - b.y)
   ends.forEach((e, i) => i && (e.y = Math.max(e.y, ends[i - 1].y + LINE)))
   for (let i = ends.length - 1, floor = H - B - 4; i >= 0; i--, floor -= LINE) ends[i].y = Math.min(ends[i].y, floor)
-  const marks = [
-    { year: AQUA_JOINS_YEAR, label: 'Aqua joins Terra' },
-    { year: VIIRS_START_YEAR, label: 'VIIRS S-NPP begins' },
-  ]
   // The sensor years and the last year always get a tick; the first year and the midpoint only where there is room.
   const ticks = [AQUA_JOINS_YEAR, VIIRS_START_YEAR, b1]
   for (const y of [b0, Math.round((VIIRS_START_YEAR + b1) / 2)]) if (ticks.every((t) => Math.abs(t - y) >= TICK_GAP)) ticks.push(y)
@@ -64,20 +71,17 @@ export function SensorsChart({ rows, meta }: Props) {
     <Frame
       copy={
         <>
-          MODIS has recorded fires since November 2000 at 1 km; Aqua joined Terra in {AQUA_JOINS_YEAR}. VIIRS S-NPP joined in {VIIRS_START_YEAR} at 375 m and
-          reports <strong>{k.toFixed(1)} detections for every MODIS detection</strong> over this area. Read side by side, the archives step up in{' '}
-          {AQUA_JOINS_YEAR} and {VIIRS_START_YEAR} with no change in fires. The harmonized record restates every year in {scale} detections, so{' '}
-          {b1 - b0 + 1} years compare on one scale.
+          MODIS: Terra since Nov 2000, Aqua since {AQUA_JOINS_YEAR}, 1 km. VIIRS S-NPP: since {VIIRS_START_YEAR}, 375 m, and{' '}
+          <strong>{k.toFixed(1)} detections per MODIS detection</strong> over this area. The raw archives step up in {AQUA_JOINS_YEAR} and{' '}
+          {VIIRS_START_YEAR} with no change in fires. The harmonized record restates all {b1 - b0 + 1} years in {scale} detections.
         </>
       }
       notes={
         <>
+          <p className="hint">Reference: VIIRS S-NPP only. NOAA-20 (2018) and NOAA-21 (2023) are left out: they would add new steps.</p>
           <p className="hint">
-            The reference series is VIIRS on Suomi NPP only. NOAA-20 and NOAA-21 are left out: adding them would put new steps into 2018 and 2023.
-          </p>
-          <p className="hint">
-            Industrial sources (FIRMS type 2 and 3: plants, gas flares, offshore) are excluded from the harmonized series, but they are in the
-            raw hotspots CSV.
+            Industrial sources (FIRMS type 2 and 3: plants, gas flares, offshore) are excluded from the harmonized series; the raw hotspots CSV
+            keeps them.
           </p>
         </>
       }
@@ -100,8 +104,8 @@ export function SensorsChart({ rows, meta }: Props) {
           ))}
           {marks.map((mk, i) => (
             <g key={mk.year}>
-              <path d={`M${X(mk.year - b0)} ${T}V${H - B}`} stroke="rgba(240,240,250,.4)" strokeDasharray="2 4" />
-              <text x={X(mk.year - b0) + 6} y={T + 10 + i * LINE}>
+              <path d={`M${X(mk.year - b0)} ${markRow(i) - 10}V${H - B}`} stroke="rgba(240,240,250,.4)" strokeDasharray="2 4" />
+              <text x={X(mk.year - b0) + 6} y={markRow(i)}>
                 {mk.label}
               </text>
             </g>
@@ -110,13 +114,14 @@ export function SensorsChart({ rows, meta }: Props) {
             <path key={s.k} d={path(s.values)} fill="none" stroke={STYLE[s.k].stroke} strokeWidth={STYLE[s.k].width} strokeDasharray={STYLE[s.k].dash} strokeLinejoin="round" />
           ))}
           {ends.map((e) => (
-            <text key={e.k} className={STYLE[e.k].hi ? 'hi' : undefined} x={W - R + 8} y={e.y}>
+            <text key={e.k} className={STYLE[e.k].hi ? 'hi' : undefined} x={W} y={e.y} textAnchor="end">
               {STYLE[e.k].label}
             </text>
           ))}
-          {/* The top of the plot is the largest yearly total; the label sits above it, clear of the lines. */}
-          <text x={L} y={T - 10}>
-            {fmt(max)} / yr max
+          {/* The top of the plot is the largest yearly total: a faint rule with its value above the right end. */}
+          <path d={`M${L} ${T + 0.5}H${W - R}`} stroke="rgba(240,240,250,.14)" />
+          <text className="axis" x={W - R} y={T - 4} textAnchor="end">
+            <tspan>{fmt(max)}</tspan> detections
           </text>
         </svg>
       }
@@ -135,7 +140,7 @@ function Frame({ copy, notes, spec, chart }: FrameProps) {
           <p>{copy}</p>
           {notes}
         </div>
-        <div>{spec && <SpecList rows={spec} />}</div>
+        <div className="spec-col">{spec && <SpecList rows={spec} />}</div>
         {chart}
       </div>
     </section>

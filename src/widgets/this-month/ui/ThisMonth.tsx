@@ -44,6 +44,8 @@ export function ThisMonth({ result, meta, chosen, from, to, unit, onChoose }: Pr
   )
   const rank = hist.filter((r) => r.count_h > count).length + 1
   const season = result.seasonality.find((s) => s.month === month)
+  // The strongest other year of this month in the period, for the sentence under the title.
+  const top = hist.reduce<{ year: number; v: number } | null>((a, r) => (!a || r.count_h > a.v ? { year: +r.period.slice(0, 4), v: r.count_h } : a), null)
 
   return (
     <Frame
@@ -52,18 +54,18 @@ export function ThisMonth({ result, meta, chosen, from, to, unit, onChoose }: Pr
       stepper={<MonthStepper value={period} min={maxStr(meta.date_min.slice(0, 7), `${from}-01`)} max={minStr(cur.period, `${to}-12`)} current={cur.period} onChange={onChoose} />}
       copy={
         <>
-          {isCurrent && `In the first ${cur.days_observed} days, `}
-          <strong>
-            {fmt(count)} {unit}
-          </strong>
-          : {d.figure} {d.unit} for {name} ({baseline} median {fmt(median)}).{' '}
-          {hist.length > 0 && (rank === 1 ? `No other ${name} in ${from}–${to} was higher.` : `It ranks ${rank} of ${hist.length + 1} in ${from}–${to}.`)}
+          {top
+            ? rank === 1
+              ? `The highest ${name} in ${from}–${to}; the next is ${top.year} with ${fmt(top.v)} ${unit}.`
+              : `Ranks ${rank} of ${hist.length + 1} among the ${name}s of ${from}–${to}; the highest is ${top.year} with ${fmt(top.v)} ${unit}.`
+            : `No other ${name} in ${from}–${to} to compare with.`}
           {d.note && <span className="note"> {d.note}</span>}
         </>
       }
       spec={[
         ['Detections', fmt(count)],
         [`Median ${baseline}`, fmt(median)],
+        ...(season ? ([['Usual range (P25–P75)', `${fmt(season.p25)}–${fmt(season.p75)}`]] as [string, ReactNode][]) : []),
         median < SMALL_MEDIAN ? ['Difference', `${d.figure} detections`] : ['Ratio to median', ratio === null ? 'n/a' : `${ratio.toFixed(1)}×`],
         ['Percentile', String(pct)],
         ['Class', <span key="cls" className={`cls cls-${anomaly}`}>{anomaly}</span>],
@@ -103,9 +105,39 @@ function Strip({ hist, count, median, band, label, name }: StripProps) {
   const xc = X(count)
   const anchor = (x: number) => (x > 660 ? 'end' : 'start')
   const off = (x: number) => (x > 660 ? -6 : 6)
+  // The "usual range" caption shares a row with the month's name (7 units a letter). It goes to the right of the range, else to the
+  // left; a range collapsed to one value carries that value in the caption, as no box shows it.
+  const nameW = label.length * 7
+  const nameFrom = xc > 660 ? xc - 6 - nameW : xc + 6
+  const capText = band ? (band[0] === band[1] ? `usual range ${fmt(band[0])}` : 'usual range') : ''
+  const capW = capText.length * 7
+  const meetsName = (from: number) => from < nameFrom + nameW + 8 && from + capW > nameFrom - 8
+  const capRight = band ? X(band[1]) + 6 : 0
+  const capLeft = band ? X(band[0]) - 6 - capW : 0
+  // With no room on either side it drops to the axis's bottom row, centred under the range and kept clear of the "0" and the maximum.
+  const hiW = fmt(hi).length * 7
+  const capMid = band ? (X(band[0]) + X(band[1])) / 2 : 0
+  const caption: { x: number; y: number; anchor: 'start' | 'end' } | null = !band
+    ? null
+    : capRight + capW <= 758 && !meetsName(capRight)
+      ? { x: capRight, y: 34, anchor: 'start' }
+      : capLeft >= 0 && !meetsName(capLeft)
+        ? { x: capLeft + capW, y: 34, anchor: 'end' }
+        : { x: Math.max(16, Math.min(capMid - capW / 2, 760 - hiW - 10 - capW)), y: 80, anchor: 'start' }
+  // A range narrower than 6 units (p25 = p75, or nearly) is widened around its middle so it stays visible beside the month's point.
+  const bandW = band ? Math.max(6, X(band[1]) - X(band[0])) : 0
+  const bandX = Math.max(0, capMid - bandW / 2)
+  // The numbers behind the marks, under the axis: the median first, then the ends of the usual range; one that would touch a kept
+  // number, this month's stem or the axis's own "0" is left out.
+  const values: { key: string; x: number; text: string }[] = []
+  for (const [key, v] of [['m', median], ['p25', band?.[0]], ['p75', band?.[1]]] as const) {
+    if (v === undefined) continue
+    const x = X(v)
+    if (x > 30 && Math.abs(x - xc) > 22 && values.every((o) => Math.abs(o.x - x) > 24)) values.push({ key, x, text: fmt(v) })
+  }
   return (
     <svg className="strip" viewBox="0 0 760 86" role="img" aria-label={`${name} in every year of the period, with the median, the middle half of years and ${label} marked`}>
-      {band && <rect x={X(band[0])} y="38" width={Math.max(1, X(band[1]) - X(band[0]))} height="13" fill="rgba(240,240,250,.12)" />}
+      {band && <rect x={bandX} y="38" width={bandW} height="13" fill="rgba(240,240,250,.12)" />}
       <path d="M0 50.5H760" stroke="rgba(240,240,250,.3)" />
       {hist.map((o) => (
         <path key={o.year} d={`M${X(o.v)} 42V50`} stroke="rgba(240,240,250,.55)">
@@ -118,20 +150,26 @@ function Strip({ hist, count, median, band, label, name }: StripProps) {
       <text className="hi" x={xm + off(xm)} y="20" textAnchor={anchor(xm)}>
         Median
       </text>
-      {band && (
-        <text x={X(band[1]) + 6} y="34" opacity={X(band[1]) > 600 ? 0 : 1}>
-          p25–p75
+      {caption && (
+        <text x={caption.x} y={caption.y} textAnchor={caption.anchor}>
+          {capText}
         </text>
       )}
+      {values.map((v) => (
+        <text key={v.key} x={v.x} y="67" textAnchor={v.x < 14 ? 'start' : v.x > 746 ? 'end' : 'middle'}>
+          {v.text}
+        </text>
+      ))}
       <circle cx={xc} cy="50.5" r="4.5" fill="#fff" />
-      <path d={`M${xc} 55V68`} stroke="#fff" />
-      <text className="hi" x={xc + off(xc)} y="80" textAnchor={anchor(xc)}>
+      <path d={`M${xc} 46V40`} stroke="#fff" />
+      {/* The name sits above its point; the black edge keeps a line behind it (the median's) from running through the letters. */}
+      <text className="hi" x={xc + off(xc)} y="34" textAnchor={anchor(xc)} stroke="#000" strokeWidth="4" paintOrder="stroke">
         {label}
       </text>
-      <text x="0" y="80" opacity={xc < 90 ? 0 : 1}>
+      <text x="0" y="80">
         0
       </text>
-      <text x="760" y="20" textAnchor="end" opacity={xm > 620 ? 0 : 1}>
+      <text x="760" y="80" textAnchor="end">
         {fmt(hi)}
       </text>
     </svg>
@@ -147,13 +185,19 @@ function Daily({ days, allowed, inPeriod, dim, label }: DailyProps) {
   const W = 760
   const H = 120
   const B = 18
+  // T is the top of the plot: the largest day reaches it, and the value is written above its right end.
+  const T = 16
   const max = Math.max(1, ...days.map((d) => d.count_h))
   const bw = W / dim
   return (
     <svg className="daily" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Detections per day, ${label}`}>
+      <path d={`M0 ${T + 0.5}H${W}`} stroke="rgba(240,240,250,.14)" />
+      <text className="axis" x={W} y={T - 4} textAnchor="end">
+        <tspan>{fmt(max)}</tspan> detections
+      </text>
       {days.map((d) => {
         const i = +d.date.slice(8) - 1
-        const h = (d.count_h / max) * (H - B - 10)
+        const h = (d.count_h / max) * (H - B - T)
         return (
           <rect key={d.date} x={i * bw + 1} y={H - B - h} width={Math.max(1, bw - 2)} height={h} fill="#f0f0fa">
             <title>
@@ -168,9 +212,6 @@ function Daily({ days, allowed, inPeriod, dim, label }: DailyProps) {
           {day}
         </text>
       ))}
-      <text x="0" y="10">
-        {fmt(max)} / day
-      </text>
     </svg>
   )
 }
