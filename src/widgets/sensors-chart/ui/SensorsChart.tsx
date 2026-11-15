@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { recordValue, type RecordKind } from '@/entities/analysis'
-import { scaleName } from '@/entities/meta'
 import type { Meta, MonthlyRow } from '@/shared/api'
 import { AQUA_JOINS_YEAR, VIIRS_START_YEAR } from '@/shared/config'
 import { fmt } from '@/shared/lib/format'
@@ -27,6 +26,18 @@ const STYLE: Record<RecordKind, { label: string; stroke: string; width: number; 
   // Equals the harmonized line from 2012 on, so it is drawn as a wide band under it and shows as a grey edge.
   viirs: { label: 'VIIRS raw', stroke: 'rgba(240,240,250,.4)', width: 6 },
 }
+
+// shortcut: model v3 card from the algorithm team, hardcoded; /meta has no leave-one-year-out or stress-test metrics. Move to /meta when it does.
+const MODEL_CARD: [string, string][] = [
+  ['Model', 'v3'],
+  ['Scale', 'VIIRS S-NPP-equivalent'],
+  ['Fitted on', '2012–2019'],
+  ['Validated', 'Leave-one-year-out, 2012–2019'],
+  ['Error, Ukraine × month', '7.3%'],
+  ['Error, annual totals', '3.6%'],
+  ['Bias', '+0.3%'],
+  ['Stress test 2020–2026, Ukraine × month', '10.8% error, bias −0.3%'],
+]
 
 /** Yearly totals over the baseline years: the raw sensors' steps, and the harmonized line that removes them. */
 export function SensorsChart({ rows, meta }: Props) {
@@ -63,17 +74,14 @@ export function SensorsChart({ rows, meta }: Props) {
   // The sensor years and the last year always get a tick; the first year and the midpoint only where there is room.
   const ticks = [AQUA_JOINS_YEAR, VIIRS_START_YEAR, b1]
   for (const y of [b0, Math.round((VIIRS_START_YEAR + b1) / 2)]) if (ticks.every((t) => Math.abs(t - y) >= TICK_GAP)) ticks.push(y)
-  const m = meta.model
-  const scale = scaleName(meta)
-  const span = (ys: number[]) => (ys.length ? `${ys[0]}–${ys.at(-1)}` : 'n/a')
-
   return (
     <Frame
       copy={
         <>
           MODIS: Terra since Nov 2000, Aqua since {AQUA_JOINS_YEAR}, 1 km. VIIRS S-NPP: since {VIIRS_START_YEAR}, 375 m, and{' '}
           <strong>{k.toFixed(1)} detections per MODIS detection</strong> over this area. The raw archives step up in {AQUA_JOINS_YEAR} and{' '}
-          {VIIRS_START_YEAR} with no change in fires. The harmonized record restates all {b1 - b0 + 1} years in {scale} detections.
+          {VIIRS_START_YEAR} with no change in fires. The harmonized record puts 2000–2012 on the VIIRS S-NPP scale; from 2012 on it is
+          S-NPP as observed.
         </>
       }
       notes={
@@ -85,15 +93,7 @@ export function SensorsChart({ rows, meta }: Props) {
           </p>
         </>
       }
-      spec={[
-        ['Model', m.model_version],
-        ['Scale', scale],
-        ['Fitted on', span(m.fit_years)],
-        ['Checked on', span(m.holdout_years)],
-        ['Error (MAPE)', `${(m.metrics.mape * 100).toFixed(0)}%`],
-        ['R²', m.metrics.r2.toFixed(2)],
-        ['Bias', `${m.metrics.bias > 0 ? '+' : ''}${(m.metrics.bias * 100).toFixed(1)}%`],
-      ]}
+      spec={MODEL_CARD}
       chart={
         <svg className="lines" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Detections per year, ${b0}–${b1}: MODIS raw, VIIRS S-NPP raw and harmonized`}>
           <path d={`M${L} ${H - B + 0.5}H${W - R}`} stroke="rgba(240,240,250,.3)" />

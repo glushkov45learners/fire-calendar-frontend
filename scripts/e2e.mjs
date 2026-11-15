@@ -277,7 +277,7 @@ try {
   const sens = await text('#sensors')
   check(
     'Sensors: 3 lines, 2002 and 2012 marks, NOAA and type 2/3 notes, model metrics',
-    /Aqua joins Terra/.test(sens) && /VIIRS S-NPP begins/.test(sens) && /NOAA-20 and NOAA-21/.test(sens) && /type 2 and 3/.test(sens) && /MAPE/.test(sens) && /Bias/.test(sens) && (await ev(`return document.querySelectorAll('#sensors .lines path[stroke-linejoin]').length`)) === 3,
+    /Aqua joins Terra/.test(sens) && /VIIRS S-NPP begins/.test(sens) && /NOAA-20 and NOAA-21/.test(sens) && /type 2 and 3/.test(sens) && /Leave-one-year-out/.test(sens) && /Bias/.test(sens) && (await ev(`return document.querySelectorAll('#sensors .lines path[stroke-linejoin]').length`)) === 3,
   )
 
   /* collapsed menu, phone */
