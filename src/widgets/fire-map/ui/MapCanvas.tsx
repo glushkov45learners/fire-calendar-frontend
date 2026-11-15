@@ -30,6 +30,8 @@ const LINES = graticule(VIEW)
 const CALLOUT_FLIP_LON = 36.5
 /** Same breakpoint as the phone layout in index.css. */
 const PHONE_MAX = 720
+/** Least room kept at the bottom for the title block (map key, period, area name), in px: wide layouts and phones. */
+const TITLE_CLEARANCE = { wide: 300, phone: 220 }
 
 type Props = {
   area: Area
@@ -62,7 +64,8 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
     if (w < 80 || h < 80) return // not laid out yet (lazy chunk, hidden tab): onResize frames it later
     // Phones hide the callout (the title already names the area), so it needs no room there.
     const callout = w <= PHONE_MAX ? w * 0.12 : Math.max(w * 0.12, Math.min(320, w * 0.45))
-    const raw = { top: Math.max(h * 0.12, 60), bottom: h * 0.32, left: calloutLeft ? callout : w * 0.1, right: calloutLeft ? w * 0.12 : callout }
+    // The same room on both sides, enough for the callout on either: the area sits in the middle of the map, not beside it.
+    const raw = { top: Math.max(h * 0.12, 60), bottom: Math.max(h * 0.32, w <= PHONE_MAX ? TITLE_CLEARANCE.phone : TITLE_CLEARANCE.wide), left: callout, right: callout }
     // On a small frame (phones) the paddings must still leave room for the area, or MapLibre refuses to fit at all.
     const kx = Math.min(1, (w * 0.6) / (raw.left + raw.right))
     const ky = Math.min(1, (h * 0.6) / (raw.top + raw.bottom))

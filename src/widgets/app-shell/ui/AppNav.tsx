@@ -47,13 +47,6 @@ export function AppNav({ collapsed, onToggle }: Props) {
         ))}
       </nav>
       <div className="side-foot">
-        <a className="nav-item" href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <ellipse cx="10" cy="5.5" rx="6.5" ry="2.5" />
-            <path d="M3.5 5.5v9c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-9M3.5 10c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5" />
-          </svg>
-          <span className="lbl">Data source</span>
-        </a>
         <button type="button" className="nav-item collapse-btn" aria-expanded={!collapsed} onClick={onToggle}>
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <rect x="2.5" y="3.5" width="15" height="13" rx="1" />

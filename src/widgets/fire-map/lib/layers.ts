@@ -7,10 +7,11 @@ import { ramp, SEQ } from '@/shared/lib/ramp'
 export const VIEW: Bbox = [22.0, 44.0, 40.5, 52.5]
 
 /**
- * How far the camera may pan: VIEW plus a margin, widest in the south, so a zoomed-in user can drag Crimea and the coast
- * up from under the title and the bottom fade. Zooming out stops at VIEW (minZoom is set from the fit).
+ * How far the camera may pan: VIEW plus wide margins, so an area at the country's edge (Donbas, Zakarpattia, Crimea) can be
+ * framed in the middle of the map, clear of the title block and the buttons, instead of being pinned to the frame's side.
+ * Zooming out still stops at VIEW (minZoom is set from the fit).
  */
-export const PAN_BOUNDS: Bbox = [VIEW[0] - 0.5, VIEW[1] - 1.5, VIEW[2] + 0.5, VIEW[3] + 0.3]
+export const PAN_BOUNDS: Bbox = [VIEW[0] - 6, VIEW[1] - 3.5, VIEW[2] + 6, VIEW[3] + 3]
 
 /**
  * Squares of the 0.1° grid. `in` marks cells inside `area` (centre in it, the backend's rule; null = all), which the map

@@ -110,6 +110,7 @@ export function HomePage() {
             error: grid.error instanceof ApiError && grid.error.status === 404 ? 'The map grid is not available on the server yet.' : grid.error ? describeError(grid.error) : null,
             unit: GRID_UNIT[view.record],
             period: gridPeriod,
+            month: view.month ? periodLabel(view.month) : null,
             note: viirsTooEarly ? `VIIRS S-NPP starts in ${SENSOR_START.viirs.slice(0, 4)}` : null,
           }}
           onDraw={(p) => (p ? view.setArea(drawnArea(p)) : view.clearDrawn())}

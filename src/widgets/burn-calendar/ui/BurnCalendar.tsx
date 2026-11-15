@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { describeAnomaly, type Cell, type RecordKind } from '@/entities/analysis'
 import type { CalendarMode } from '@/features/select-calendar-mode'
 import { fmt, MONTHS_SHORT, periodLabel } from '@/shared/lib/format'
-import { DIV, gradient, ramp, SEQ } from '@/shared/lib/ramp'
+import { DIV, ramp, SEQ } from '@/shared/lib/ramp'
 
 type Props = {
   cells: Cell[]
@@ -24,6 +24,9 @@ const T = 22
 const GAP = 2
 /** z beyond ±Z_RANGE takes the end colours of the diverging scale. */
 const Z_RANGE = 3
+
+/** Swatches in the key; odd, so the anomaly scale has a middle one for the norm. */
+const KEY_STEPS = 7
 
 const RAW_UNIT: Record<RecordKind, string> = { harm: '', modis: 'MODIS detections', viirs: 'VIIRS S-NPP detections' }
 
@@ -103,7 +106,12 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
         </div>
         <div className="cal-key">
           <span>{mode === 'count' ? `${label} per month, log scale` : `Against the ${baseline} norm for that month, z-score`}</span>
-          <div className="ramp" style={{ background: gradient(mode === 'count' ? SEQ : DIV) }} />
+          {/* Swatches shaped like the cells, not a smooth bar: the map's key next to it is a bar, and the two scales differ. */}
+          <div className="swatches" aria-hidden="true">
+            {Array.from({ length: KEY_STEPS }, (_, i) => (
+              <i key={i} style={{ background: ramp(mode === 'count' ? SEQ : DIV, i / (KEY_STEPS - 1)) }} />
+            ))}
+          </div>
           <div className="ramp-ends">
             <span>{mode === 'count' ? '1' : `−${Z_RANGE}`}</span>
             {mode === 'anom' && <span>0</span>}

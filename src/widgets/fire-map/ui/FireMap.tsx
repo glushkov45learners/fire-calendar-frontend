@@ -26,6 +26,8 @@ type Props = {
     unit: string
     /** "Nov 2000 – Nov 2026" or "October 2026". */
     period: string
+    /** "October 2026" when one month is chosen: the map then shows less than the period in the title, and the key says so. */
+    month: string | null
     /** Why the map is empty on purpose, e.g. VIIRS before 2012; the grid is not drawn then. */
     note: string | null
   }
@@ -78,19 +80,18 @@ export function FireMap({ area, dateLabel, busy, grid, onDraw }: Props) {
       </div>
       <div className="veil" />
 
-      <div className="map-key" aria-live="polite">
-        {grid.unit} per 0.1° cell, {grid.period}
-        <div className="ramp" style={{ background: gradient(SEQ) }} />
-        <div className="ramp-ends">
-          <span>{heat ? fmt(heat.min) : ''}</span>
-          <span>{heat ? fmt(heat.max) : ''}</span>
-        </div>
-        {/* The ramp runs from the smallest to the largest cell of the selected area, so a colour means a different count in another area. */}
-        {heat && <p className="map-scale">Colours are scaled to this area</p>}
-        {status && <p className="map-note">{status}</p>}
-      </div>
-
       <div className="opening">
+        {/* The key sits with the title: this corner is darkened for text and never has cells under it. */}
+        <div className="map-key" aria-live="polite">
+          {/* The whole period is the line below the key; only a chosen month needs naming here. */}
+          {grid.unit} per 0.1° cell{grid.month ? `, ${grid.month}` : ''}
+          <div className="ramp" style={{ background: gradient(SEQ) }} />
+          <div className="ramp-ends">
+            <span>{heat ? fmt(heat.min) : ''}</span>
+            <span>{heat ? fmt(heat.max) : ''}</span>
+          </div>
+          {status && <p className="map-note">{status}</p>}
+        </div>
         <p className="date">
           {dateLabel}
           {busy && <span className="busy"> · updating</span>}

@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import type { Area } from '@/entities/aoi'
 import type { RecordKind } from '@/entities/analysis'
-import { CalendarCsvButton } from '@/features/export-calendar-csv'
-import { HotspotsCsvButton } from '@/features/export-hotspots-csv'
+import { ExportMenu } from '@/features/export-csv'
 import { PointRadiusForm } from '@/features/point-radius'
 import { SearchArea } from '@/features/search-area'
 import { PresetTiles } from '@/features/select-area-preset'
@@ -65,10 +64,8 @@ export function ControlPanel(p: Props) {
       </div>
 
       <div className="actions">
-        <CalendarCsvButton area={p.area} from={p.range?.from ?? ''} to={p.range?.to ?? ''} disabled={!p.range} />
-        <HotspotsCsvButton area={p.area} from={p.range?.from ?? ''} to={p.range?.to ?? ''} disabled={!p.range} />
+        <ExportMenu area={p.area} from={p.range?.from ?? ''} to={p.range?.to ?? ''} disabled={!p.range} />
       </div>
-      <p className="hint">The hotspots CSV also lists NOAA-20 and NOAA-21 detections, so it has more rows than the raw count above.</p>
       {p.demo && <p className="hint">Demo data: real monthly counts for the four saved areas; other areas are scaled from the nearest one.</p>}
     </section>
   )
