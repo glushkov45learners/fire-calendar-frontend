@@ -1,5 +1,5 @@
 export { ApiError, USE_MOCKS } from './client'
-export { analyze, calendarCsv, getGrid, getMeta, hotspotsCsv, sortAnalyze } from './endpoints'
+export { analyze, calendarCsv, getGrid, getMeta, hotspotsCsv, sortAnalyze, subscribe } from './endpoints'
 export { describeError } from './errors'
 export type {
   Aoi,

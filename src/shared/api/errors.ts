@@ -12,6 +12,10 @@ export function describeError(e: unknown): string {
       return 'This area is outside Ukraine, the only country the archive covers.'
     case 'too_many_rows':
       return 'Over 500,000 points. Narrow the period or the area and try again.'
+    case 'invalid_email':
+      return 'That does not look like an email address. Check it and try again.'
+    case 'consent_required':
+      return 'Tick the box to agree to the monthly letter.'
     case 'network':
       return 'The server could not be reached. Check the connection and retry.'
     default:

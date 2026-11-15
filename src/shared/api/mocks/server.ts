@@ -24,6 +24,12 @@ export function handle(method: string, url: string, rawBody: string): MockRespon
     if (method === 'POST' && path === '/analyze') return json(200, mockAnalyze(body))
     if (method === 'POST' && path === '/calendar.csv') return { status: 200, type: 'text/csv', body: mockCalendarCsv(body), filename: 'calendar.csv' }
     if (method === 'POST' && path === '/hotspots.csv') return { status: 200, type: 'text/csv', body: mockHotspotsCsv(body), filename: 'hotspots.csv' }
+    if (method === 'POST' && path === '/subscriptions') {
+      const { email, consent } = body as { email?: unknown; consent?: unknown }
+      if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new MockError(400, 'invalid_email', 'email is not a valid address')
+      if (consent !== true) throw new MockError(400, 'consent_required', 'consent to the monthly digest must be true')
+      return { status: 204, type: 'application/json', body: '' }
+    }
     return json(404, { error: { code: 'not_found', message: `${method} ${path} is not part of contract 3` } })
   } catch (e) {
     if (e instanceof MockError) return json(e.status, { error: { code: e.code, message: e.message } })

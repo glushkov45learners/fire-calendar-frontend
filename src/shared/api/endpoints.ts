@@ -1,4 +1,4 @@
-import { getBlob, getJson } from './client'
+import { getBlob, getJson, post } from './client'
 import type { AnalyzeQuery, AnalyzeResult, CalendarCsvQuery, GridCell, GridQuery, Meta } from './types'
 
 export const getMeta = (signal?: AbortSignal) => getJson<Meta>('/meta', undefined, signal)
@@ -17,6 +17,9 @@ export const analyze = (q: AnalyzeQuery, signal?: AbortSignal) =>
 
 export const calendarCsv = (q: CalendarCsvQuery, signal?: AbortSignal) => getBlob('/calendar.csv', q, signal)
 export const hotspotsCsv = (q: AnalyzeQuery, signal?: AbortSignal) => getBlob('/hotspots.csv', q, signal)
+
+/** Monthly e-mail digest: the address plus the person's explicit consent. Subscribing twice is not an error. */
+export const subscribe = (email: string, signal?: AbortSignal) => post('/subscriptions', { email, consent: true }, signal)
 
 // shortcut: GET /grid is not in contract 3 yet; agree the path, parameters and shape with Andriy.
 export const getGrid = (q: GridQuery, signal?: AbortSignal) =>

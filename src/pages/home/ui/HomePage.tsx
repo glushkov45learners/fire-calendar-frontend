@@ -11,6 +11,7 @@ import { AppFooter, AppNav, SkipLink } from '@/widgets/app-shell'
 import { BurnCalendar } from '@/widgets/burn-calendar'
 import { ControlPanel } from '@/widgets/control-panel'
 import { FireMap } from '@/widgets/fire-map'
+import { MonthlyDigest } from '@/widgets/monthly-digest'
 import { SelectionSummary } from '@/widgets/selection-summary'
 import { SensorsChart } from '@/widgets/sensors-chart'
 import { ThisMonth } from '@/widgets/this-month'
@@ -128,6 +129,7 @@ export function HomePage() {
         />
         <ThisMonth result={result} meta={meta.data} chosen={view.month} from={view.from} to={view.to} unit={unit} onChoose={view.setMonth} />
         <SensorsChart rows={result?.monthly ?? null} meta={meta.data} />
+        <MonthlyDigest />
         <AppFooter />
       </main>
     </div>

@@ -45,4 +45,6 @@ async function send(path: string, body: unknown, signal?: AbortSignal): Promise<
 
 export const getJson = <T>(path: string, body?: unknown, signal?: AbortSignal) =>
   send(path, body, signal).then((r) => r.json() as Promise<T>)
-export const getBlob = (path: string, body: unknown, signal?: AbortSignal) => send(path, body, signal).then((r) => r.blob())
+/** For endpoints that answer 204: resolves once the server has accepted the body. */
+export const post = (path: string, body: unknown, signal?: AbortSignal) => send(path, body, signal).then(() => undefined)
+export const getBlob =(path: string, body: unknown, signal?: AbortSignal) => send(path, body, signal).then((r) => r.blob())

@@ -779,6 +779,55 @@
     .point-form .action {
         height: 40px;
     }
+    .digest-form {
+        display: grid;
+        gap: 16px;
+        justify-items: start;
+        max-width: 416px;
+    }
+    .digest-form .field {
+        width: 100%;
+    }
+    .digest-form .field input {
+        height: 50px;
+        padding: 0 14px;
+        font-size: 15px;
+    }
+    .consent {
+        display: grid;
+        grid-template-columns: 20px 1fr;
+        gap: 12px;
+        align-items: start;
+        font-size: 14px;
+        line-height: 1.45;
+        color: var(--color-secondary);
+        cursor: pointer;
+    }
+    .consent input {
+        width: 20px;
+        height: 20px;
+        margin: 0;
+        accent-color: var(--color-text);
+        cursor: pointer;
+    }
+    .consent input[aria-invalid="true"] {
+        outline: 1px solid #ffb4a8;
+        outline-offset: 2px;
+    }
+    .digest-form .hint {
+        margin-top: 0;
+    }
+    .digest-done {
+        font-weight: 700;
+        font-size: 20px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: var(--color-text);
+    }
+    .digest-form strong {
+        font-weight: 400;
+        color: var(--color-text);
+    }
     .export {
         position: relative;
     }
