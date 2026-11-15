@@ -783,10 +783,26 @@
         display: grid;
         gap: 16px;
         justify-items: start;
-        max-width: 416px;
+        width: 100%;
+        max-width: 760px;
+        /* Centred between the text and the right edge: the -64px margin cancels the .split column gap, so both gaps match. */
+        justify-self: center;
+        margin-left: -64px;
     }
     .digest-form .field {
         width: 100%;
+    }
+    /* Email and button share one row so the form spans the column, like the spec tables of the other chapters. */
+    .digest-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: end;
+        width: 100%;
+    }
+    .digest-row .action {
+        height: 50px;
+        padding: 0 28px;
     }
     .digest-form .field input {
         height: 50px;
@@ -1217,6 +1233,11 @@
     }
     .split {
         grid-template-columns: 1fr;
+    }
+    .digest-form {
+        max-width: none;
+        justify-self: stretch;
+        margin-left: 0;
     }
     /* 27 years in 360 px leaves 12 px cells: scroll sideways instead, with cells a finger can hit. */
     .cal-scroll {

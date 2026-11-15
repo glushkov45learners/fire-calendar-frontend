@@ -48,25 +48,27 @@ export function SubscribeForm() {
 
   return (
     <form className="digest-form" onSubmit={submit} noValidate aria-label="Subscribe to the monthly digest">
-      <label className="field">
-        <span>Email</span>
-        <input
-          name="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="name@example.org"
-          aria-invalid={problem?.field === 'email' || undefined}
-          aria-describedby={problem ? 'digest-problem' : undefined}
-        />
-      </label>
+      <div className="digest-row">
+        <label className="field">
+          <span>Email</span>
+          <input
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="name@example.org"
+            aria-invalid={problem?.field === 'email' || undefined}
+            aria-describedby={problem ? 'digest-problem' : undefined}
+          />
+        </label>
+        <button type="submit" className="action is-filled" disabled={busy}>
+          {busy ? 'Subscribing…' : 'Subscribe'}
+        </button>
+      </div>
       <label className="consent">
         <input name="consent" type="checkbox" aria-invalid={problem?.field === 'consent' || undefined} />
         <span>I agree to receive the monthly Fire Calendar letter at this address.</span>
       </label>
-      <button type="submit" className="action is-filled" disabled={busy}>
-        {busy ? 'Subscribing…' : 'Subscribe'}
-      </button>
       {problem ? (
         <p className="hint is-error" id="digest-problem" role="alert">
           {problem.text}

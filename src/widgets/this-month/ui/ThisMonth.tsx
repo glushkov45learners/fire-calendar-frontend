@@ -59,7 +59,16 @@ export function ThisMonth({ result, meta, chosen, from, to, unit, onChoose }: Pr
               ? `The highest ${name} in ${from}–${to}; the next is ${top.year} with ${fmt(top.v)} ${unit}.`
               : `Ranks ${rank} of ${hist.length + 1} among the ${name}s of ${from}–${to}; the highest is ${top.year} with ${fmt(top.v)} ${unit}.`
             : `No other ${name} in ${from}–${to} to compare with.`}
-          {d.note && <span className="note"> {d.note}</span>}
+          {(d.note || isCurrent) && (
+            <span className="note">
+              {' '}
+              {isCurrent && d.note
+                ? `The month is not over, so its total will still grow against a median of whole months; with the median under ${SMALL_MEDIAN}, the change is shown in detections, not percent.`
+                : isCurrent
+                  ? 'The month is not over: its total will still grow, while the median covers whole months.'
+                  : d.note}
+            </span>
+          )}
         </>
       }
       spec={[
@@ -73,11 +82,6 @@ export function ThisMonth({ result, meta, chosen, from, to, unit, onChoose }: Pr
       ]}
       extra={
         <>
-          {isCurrent && (
-            <p className="hint">
-              {cur.days_observed} of {dim} days observed: the month is not over, so its total will still grow, while the median is for whole months.
-            </p>
-          )}
           <Strip hist={hist.map((r) => ({ year: +r.period.slice(0, 4), v: r.count_h }))} count={count} median={median} band={season && [season.p25, season.p75]} label={`${MONTHS_SHORT[month - 1]} ${year}`} name={name} />
           <Daily
             days={result.daily.filter((x) => x.date.startsWith(period))}

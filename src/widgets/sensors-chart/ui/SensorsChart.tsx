@@ -79,8 +79,8 @@ export function SensorsChart({ rows, meta }: Props) {
       copy={
         <>
           MODIS: Terra since Nov 2000, Aqua since {AQUA_JOINS_YEAR}, 1 km. VIIRS S-NPP: since {VIIRS_START_YEAR}, 375 m, and{' '}
-          <strong>{k.toFixed(1)} detections per MODIS detection</strong> over this area. The raw archives step up in {AQUA_JOINS_YEAR} and{' '}
-          {VIIRS_START_YEAR} with no change in fires. The harmonized record puts 2000–2012 on the VIIRS S-NPP scale; from 2012 on it is
+          <strong>{k.toFixed(1)} detections per MODIS detection</strong> over this area. The raw archives show an increase in {AQUA_JOINS_YEAR} and{' '}
+          {VIIRS_START_YEAR}, with no change in fires. The harmonized record puts 2000–2012 on the VIIRS S-NPP scale; from 2012 on, it is
           S-NPP as observed.
         </>
       }
@@ -88,8 +88,8 @@ export function SensorsChart({ rows, meta }: Props) {
         <>
           <p className="hint">Reference: VIIRS S-NPP only. NOAA-20 (2018) and NOAA-21 (2023) are left out: they would add new steps.</p>
           <p className="hint">
-            Industrial sources (FIRMS type 2 and 3: plants, gas flares, offshore) are excluded from the harmonized series; the raw hotspots CSV
-            keeps them.
+            Industrial sources (FIRMS types 2 and 3: plants, gas flares, offshore) are excluded from the harmonized series; the raw hotspots CSV
+            file includes them.
           </p>
         </>
       }
