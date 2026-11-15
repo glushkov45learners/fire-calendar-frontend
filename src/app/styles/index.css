@@ -190,6 +190,29 @@
     .search:focus-within {
         border-color: var(--color-text);
     }
+    .search-hits {
+        margin-top: 6px;
+        border: 1px solid var(--color-action-edge);
+        border-radius: 4px;
+        list-style: none;
+    }
+    .search-hits li + li {
+        border-top: 1px solid var(--color-action-edge);
+    }
+    .search-hits button {
+        display: block;
+        width: 100%;
+        min-height: 40px;
+        padding: 8px 16px;
+        text-align: left;
+        font-size: 14px;
+        color: var(--color-secondary);
+    }
+    .search-hits button:hover,
+    .search-hits button:focus-visible {
+        background: rgb(240 240 250 / 0.08);
+        color: var(--color-text);
+    }
     .search-note {
         min-height: 20px;
         margin-top: 6px;
@@ -797,6 +820,11 @@
         font-size: 14px;
     }
     .busy {
+        color: var(--color-muted);
+    }
+    .map-scale {
+        margin-top: 6px;
+        font: 400 11px/1.4 var(--font-mono);
         color: var(--color-muted);
     }
     .map-note {

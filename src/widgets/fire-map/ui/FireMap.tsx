@@ -85,6 +85,8 @@ export function FireMap({ area, dateLabel, busy, grid, onDraw }: Props) {
           <span>{heat ? fmt(heat.min) : ''}</span>
           <span>{heat ? fmt(heat.max) : ''}</span>
         </div>
+        {/* The ramp runs from the smallest to the largest cell of the selected area, so a colour means a different count in another area. */}
+        {heat && <p className="map-scale">Colours are scaled to this area</p>}
         {status && <p className="map-note">{status}</p>}
       </div>
 

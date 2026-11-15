@@ -5,12 +5,10 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection, Polygon } from 'geojson'
 import { useEffect, useMemo, useRef } from 'react'
 import Map, { Layer, Marker, NavigationControl, Source, type MapRef, type StyleSpecification } from 'react-map-gl/maplibre'
-import { UKRAINE_BORDER, type Area } from '@/entities/aoi'
+import { OBLASTS, UKRAINE_BORDER, type Area } from '@/entities/aoi'
 import { DrawAreaControl } from '@/features/draw-area'
 import { bbox } from '@/shared/lib/geo'
 import { brackets, graticule, PAN_BOUNDS, VIEW } from '../lib/layers'
-// Oblast borders (geoBoundaries ADM1, © OpenStreetMap contributors), simplified to ~1 km, as lines.
-import oblasts from '../model/oblasts.json'
 
 // Vite bundles maplibre-gl, which breaks its own import.meta.url lookup of the worker file.
 // This instance is passed to <Map mapLib>, since react-map-gl would otherwise load a second copy.
@@ -144,7 +142,8 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
           />
         </Source>
       )}
-      <Source id="oblasts" type="geojson" data={oblasts as GeoJSON.FeatureCollection}>
+      {/* Oblast borders: the outlines of the same polygons the search offers as areas. */}
+      <Source id="oblasts" type="geojson" data={OBLASTS}>
         <Layer id="oblasts" type="line" paint={{ 'line-color': '#f0f0fa', 'line-opacity': 0.28, 'line-width': 0.8 }} />
       </Source>
       <Source id="border" type="geojson" data={UKRAINE_BORDER}>

@@ -4,10 +4,11 @@ export {
   DEFAULT_AREA,
   drawnArea,
   isInCoverage,
-  matchPreset,
+  OBLASTS,
   parseLatLon,
   pointArea,
   PRESETS,
+  searchAreas,
   UKRAINE_BORDER,
   type Area,
 } from './model/area'
