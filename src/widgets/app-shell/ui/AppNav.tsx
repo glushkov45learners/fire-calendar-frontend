@@ -13,16 +13,27 @@ type Props = { collapsed: boolean; onToggle: () => void }
 export function AppNav({ collapsed, onToggle }: Props) {
   const [active, setActive] = useState<string>('top')
 
-  // The section crossing the upper third of the viewport is the one being read.
+  // The last section whose top has passed the upper third is the one being read; at the page bottom the
+  // last section wins, since a short final section can never scroll up to that line.
   useEffect(() => {
-    const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && setActive(e.target.id)), {
-      rootMargin: '-30% 0px -60% 0px',
-    })
-    SECTIONS.forEach((s) => {
-      const el = document.getElementById(s.id)
-      if (el) io.observe(el)
-    })
-    return () => io.disconnect()
+    const update = () => {
+      const els = SECTIONS.map((s) => document.getElementById(s.id)).filter((el): el is HTMLElement => !!el)
+      // The page scrolls inside .stage on desktop and in the window on narrow screens.
+      const stage = els[0]?.closest<HTMLElement>('.stage')
+      const sc = stage && stage.scrollHeight > stage.clientHeight ? stage : document.documentElement
+      const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2
+      const line = window.innerHeight * 0.3
+      const current = atBottom ? els.at(-1) : els.filter((el) => el.getBoundingClientRect().top <= line).at(-1)
+      setActive(current?.id ?? 'top')
+    }
+    update()
+    // Capture catches scrolls of the .stage element too, which do not bubble.
+    document.addEventListener('scroll', update, { capture: true, passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      document.removeEventListener('scroll', update, { capture: true })
+      window.removeEventListener('resize', update)
+    }
   }, [])
 
   return (
