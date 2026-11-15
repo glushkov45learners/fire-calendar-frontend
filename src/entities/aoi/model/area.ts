@@ -10,6 +10,7 @@ import chornobyl from './chornobyl.json'
 // shortcut: the Lower Dnipro sub-basin (M5.1.3) traced from a raster map of the Dnipro basin plan and georeferenced on 8 cities
 // (error 1–11 km, the map's pixel is ~2 km); replace with the official vector boundary when the team has it.
 import lowerDnipro from './lower-dnipro.json'
+import { decodePolygon, encodePolygon } from './polygon-codec'
 
 /** An area of interest. `geometry` is exactly what goes to the API as `aoi`. */
 export type Area = {
@@ -53,10 +54,20 @@ export function pointArea(lat: number, lon: number, km = DEFAULT_RADIUS_KM): Are
   }
 }
 
-let drawnCount = 0
+/** Short stable id for a shape: the same polygon always gets the same one, so it can key effects and file names. */
+const shapeId = (code: string) => {
+  let h = 2166136261
+  for (let i = 0; i < code.length; i++) h = Math.imul(h ^ code.charCodeAt(i), 16777619)
+  return `drawn-${(h >>> 0).toString(36)}`
+}
+
+function polygonArea(polygon: Polygon): Area {
+  return { kind: 'drawn', id: shapeId(encodePolygon(polygon)), name: 'Drawn area', short: 'Drawn area', geometry: polygon }
+}
+
+/** The polygon is rounded to the precision the URL keeps (~11 m), so the area on screen is the one a shared link restores. */
 export function drawnArea(polygon: Polygon): Area {
-  drawnCount += 1
-  return { kind: 'drawn', id: `drawn-${drawnCount}`, name: 'Drawn area', short: 'Drawn area', geometry: polygon }
+  return polygonArea(decodePolygon(encodePolygon(polygon)) ?? polygon)
 }
 
 /** "lat, lon" or "lat lon" → numbers, or null. */
@@ -70,13 +81,19 @@ export function matchPreset(q: string): Area | undefined {
   return s ? PRESETS.find((r) => r.name.toLowerCase().includes(s) || r.short.toLowerCase().includes(s) || r.id === s) : undefined
 }
 
-/** URL form: a preset id, "lat,lon,km" for a point, "drawn" for a drawn shape (not restorable). */
-export const areaToParam = (a: Area) => (a.kind === 'drawn' ? 'drawn' : a.id)
+const POLY_PREFIX = 'p.'
+
+/** URL form: a preset id, "lat,lon,km" for a point, "p.<code>" for a drawn polygon (see polygon-codec). */
+export const areaToParam = (a: Area) => (a.kind === 'drawn' ? POLY_PREFIX + encodePolygon(a.geometry as Polygon) : a.id)
 
 export function areaFromParam(v: string | null): Area | null {
   if (!v) return null
   const preset = PRESETS.find((p) => p.id === v)
   if (preset) return preset
+  if (v.startsWith(POLY_PREFIX)) {
+    const polygon = decodePolygon(v.slice(POLY_PREFIX.length))
+    return polygon && polygonArea(polygon)
+  }
   const m = v.split(',').map(Number)
   if (m.length === 3 && m.every(Number.isFinite) && isInCoverage(m[0], m[1])) return pointArea(m[0], m[1], m[2])
   return null

@@ -10,14 +10,12 @@ import { SpecList } from '@/shared/ui/spec-list'
 type Props = { rows: MonthlyRow[] | null; meta: Meta | null }
 
 /** The chart's own units. Phones get a narrower box, so the same 11-unit labels come out about twice as large on screen. */
-const WIDE = { W: 760, H: 240 }
-const NARROW = { W: 400, H: 250 }
+/** R is the room on the right for end labels, LINE the vertical room one label needs (phone text renders larger). */
+const WIDE = { W: 760, H: 240, R: 128, LINE: 18 }
+const NARROW = { W: 400, H: 250, R: 128, LINE: 20 }
 const L = 4
-const R = 104
 const T = 26
 const B = 28
-/** Vertical room one label needs. */
-const LINE = 14
 /** Year ticks closer than this to an already placed one are dropped. */
 const TICK_GAP = 3
 
@@ -29,7 +27,7 @@ const STYLE: Record<RecordKind, { label: string; stroke: string; width: number; 
 
 /** Yearly totals over the baseline years: the raw sensors' steps, and the harmonized line that removes them. */
 export function SensorsChart({ rows, meta }: Props) {
-  const { W, H } = useMediaQuery('(max-width: 720px)') ? NARROW : WIDE
+  const { W, H, R, LINE } = useMediaQuery('(max-width: 720px)') ? NARROW : WIDE
   if (!rows || !meta) return <Frame copy="Loading the record…" />
   const [b0, b1] = meta.baseline_years
   const years = Array.from({ length: b1 - b0 + 1 }, (_, i) => b0 + i)

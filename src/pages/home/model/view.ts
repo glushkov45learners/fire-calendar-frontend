@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { areaFromParam, areaToParam, DEFAULT_AREA, type Area } from '@/entities/aoi'
 import { isRecordKind, type RecordKind } from '@/entities/analysis'
@@ -16,15 +16,14 @@ const clampYear = (v: string | null, lo: number, hi: number, fallback: number) =
 
 /**
  * The view lives in the URL (area, from, to, record, mode, month), so any view can be shared as a link.
- * shortcut: a drawn polygon stays in memory only (area=drawn); after a reload the default area shows. Encode it if links to drawn areas matter.
+ * A drawn polygon is encoded into the area parameter (area=p.…), so its link restores the same shape.
  */
 export function useView(meta: Meta | null) {
   const [params, setParams] = useSearchParams()
-  const [drawn, setDrawn] = useState<Area | null>(null)
 
   const [minY, maxY] = meta ? yearRange(meta) : FALLBACK
   const areaParam = params.get('area')
-  const area = (areaParam === 'drawn' ? drawn : areaFromParam(areaParam)) ?? DEFAULT_AREA
+  const area = useMemo(() => areaFromParam(areaParam) ?? DEFAULT_AREA, [areaParam])
   const rec = params.get('record')
   const record: RecordKind = isRecordKind(rec) ? rec : 'harm'
   const md = params.get('mode')
@@ -65,13 +64,11 @@ export function useView(meta: Meta | null) {
     month,
     range,
     setArea: (a: Area) => {
-      if (a.kind === 'drawn') setDrawn(a)
       set({ area: areaToParam(a) })
     },
     clearDrawn: () => {
       // Deleting a drawn area shows the whole country, not the default preset.
       if (area.kind === 'drawn') set({ area: 'ua' })
-      setDrawn(null)
     },
     setPeriod: (f: number, t: number) => set({ from: String(f), to: String(t) }),
     setRecord: (k: RecordKind) => set({ record: k }),
