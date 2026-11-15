@@ -32,7 +32,8 @@ export function useView(meta: Meta | null) {
   const from = clampYear(params.get('from'), minY, maxY, minY)
   const to = Math.max(from, clampYear(params.get('to'), minY, maxY, maxY))
   const m = params.get('month')
-  const month = m && /^\d{4}-(0[1-9]|1[0-2])$/.test(m) ? m : null
+  // A chosen month outside the period (e.g. left in the URL after the period changed) is dropped.
+  const month = m && /^\d{4}-(0[1-9]|1[0-2])$/.test(m) && +m.slice(0, 4) >= from && +m.slice(0, 4) <= to ? m : null
 
   // The API rejects dates outside the archive, so the whole-year period is clipped to it.
   const range = meta

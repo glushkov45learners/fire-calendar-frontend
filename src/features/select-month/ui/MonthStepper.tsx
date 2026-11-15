@@ -22,7 +22,7 @@ export function MonthStepper({ value, min, max, current, onChange }: Props) {
       <button type="button" className="action" disabled={next > max} onClick={() => onChange(next)} aria-label={`Next month, ${periodLabel(next)}`}>
         ›
       </button>
-      <button type="button" className="action" disabled={value === current} onClick={() => onChange(null)}>
+      <button type="button" className="action" disabled={value === current || current < min || current > max} onClick={() => onChange(null)}>
         Current month
       </button>
     </div>

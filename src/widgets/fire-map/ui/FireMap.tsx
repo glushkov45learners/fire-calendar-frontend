@@ -59,7 +59,7 @@ export function FireMap({ area, dateLabel, busy, grid, onDraw }: Props) {
         {grid.unit} per 0.1° cell, {grid.period}
         <div className="ramp" style={{ background: gradient(SEQ) }} />
         <div className="ramp-ends">
-          <span>1</span>
+          <span>{heat ? fmt(heat.min) : ''}</span>
           <span>{heat ? fmt(heat.max) : ''}</span>
         </div>
         {status && <p className="map-note">{status}</p>}

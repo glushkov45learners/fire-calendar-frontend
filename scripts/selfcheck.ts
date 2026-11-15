@@ -51,6 +51,15 @@ assert.equal(parseLatLon('50.4,'), null)
 assert.equal(PRESETS.find((p) => p.id === 'ua')!.geometry.type, 'MultiPolygon')
 assert.ok(Math.abs(areaKm2(PRESETS.find((p) => p.id === 'ua')!.geometry) - 603_550) < 60_000, 'Ukraine border area is plausible')
 assert.ok(outerRings(PRESETS[3].geometry)[0].length > 100)
+// Holes: a 1° square with a 0.5° hole in the middle.
+const donut = { type: 'Polygon' as const, coordinates: [bboxPolygon([30, 50, 31, 51]).coordinates[0], bboxPolygon([30.25, 50.25, 30.75, 50.75]).coordinates[0]] }
+assert.equal(pointInGeometry(30.5, 50.5, donut), false, 'a point in the hole is outside')
+assert.equal(pointInGeometry(30.1, 50.1, donut), true)
+assert.ok(Math.abs(areaKm2(donut) / areaKm2(bboxPolygon([30, 50, 31, 51])) - 0.75) < 0.01, 'the hole is subtracted from the area')
+// The Chornobyl exclusion zone, solid (Pripyat and Chornobyl inside): ~2,600 km².
+const zone = PRESETS.find((p) => p.id === 'chornobyl')!.geometry
+assert.ok(Math.abs(areaKm2(zone) - 2600) < 80, `Chornobyl zone area ${Math.round(areaKm2(zone))} km²`)
+assert.ok(pointInGeometry(30.05, 51.405, zone) && pointInGeometry(30.22, 51.27, zone), 'Pripyat and Chornobyl are inside')
 // The backend (PostGIS) rejects self-crossing rings; the mockup's border had one near the Dniester estuary.
 assert.ok(PRESETS.every((p) => !selfIntersects(p.geometry)), 'no preset ring crosses itself')
 assert.equal(selfIntersects(bboxPolygon([0, 0, 1, 1])), false)

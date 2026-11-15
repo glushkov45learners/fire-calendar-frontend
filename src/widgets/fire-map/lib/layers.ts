@@ -13,24 +13,28 @@ export const VIEW: Bbox = [22.0, 44.0, 40.5, 52.5]
 export const PAN_BOUNDS: Bbox = [VIEW[0] - 0.5, VIEW[1] - 1.5, VIEW[2] + 0.5, VIEW[3] + 0.3]
 
 /**
- * Squares of the 0.1° grid, coloured on SEQ by log(count + 1) against the largest count in the data.
- * `in` marks cells whose centre is inside `area` (the backend's rule for which cells an area holds), so the map can dim the rest.
+ * Squares of the 0.1° grid. `in` marks cells inside `area` (centre in it, the backend's rule; null = all), which the map
+ * draws bright and the rest dimmed. Colours are SEQ on a log scale from the smallest to the largest count of the inside
+ * cells, so even an area of similar cells spreads over the whole scale; outside cells are clamped to it.
  */
-export function heatCells(cells: GridCell[], area: Geometry | null): { fc: FeatureCollection<Polygon>; max: number } {
-  const max = Math.max(1, ...cells.map((c) => c.count))
+export function heatCells(cells: GridCell[], area: Geometry | null): { fc: FeatureCollection<Polygon>; min: number; max: number } {
   const box = area && bbox(area)
-  const features = cells.map((c): Feature<Polygon> => {
+  const all = cells.map((c) => {
     const [w, s, e, n] = cellBounds(c.cell_id)
     const cx = (w + e) / 2
     const cy = (s + n) / 2
-    const inside = !area || (inBbox(cx, cy, box!) && pointInGeometry(cx, cy, area))
-    return {
-      type: 'Feature',
-      properties: { id: c.cell_id, count: c.count, in: inside, c: ramp(SEQ, Math.log(c.count + 1) / Math.log(max + 1)) },
-      geometry: { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
-    }
+    return { ...c, b: [w, s, e, n], in: !area || (inBbox(cx, cy, box!) && pointInGeometry(cx, cy, area)) }
   })
-  return { fc: { type: 'FeatureCollection', features }, max }
+  const shown = all.filter((c) => c.in)
+  const max = Math.max(1, ...shown.map((c) => c.count))
+  const min = Math.max(1, Math.min(max, ...shown.map((c) => c.count)))
+  const t = (v: number) => (max > min ? (Math.log(Math.max(v, min)) - Math.log(min)) / (Math.log(max) - Math.log(min)) : 1)
+  const features = all.map(({ cell_id, count, in: inside, b: [w, s, e, n] }): Feature<Polygon> => ({
+    type: 'Feature',
+    properties: { id: cell_id, count, in: inside, c: ramp(SEQ, t(count)) },
+    geometry: { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
+  }))
+  return { fc: { type: 'FeatureCollection', features }, min, max }
 }
 
 /** "50.4–50.5° N, 30.1–30.2° E" */

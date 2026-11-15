@@ -13,7 +13,13 @@ export function AppFooter() {
         <a href="#calendar">Calendar</a>
         <a href="#sensors">Method</a>
       </nav>
-      <small>Glushkov45learners, NASA Space Apps 2026. Data: NASA FIRMS</small>
+      <small>
+        Glushkov45learners, NASA Space Apps 2026. Data: NASA FIRMS. Administrative boundaries courtesy of{' '}
+        <a href="https://www.geoboundaries.org/" target="_blank" rel="noopener">
+          geoBoundaries.org
+        </a>
+        , © OpenStreetMap contributors.
+      </small>
     </footer>
   )
 }

@@ -26,6 +26,8 @@ const CITIES: [string, number, number][] = [
 ]
 
 const LINES = graticule(VIEW)
+/** A zone whose east edge is past this longitude gets its callout on the left, away from the map's eastern edge. */
+const CALLOUT_FLIP_LON = 36.5
 
 type Props = {
   area: Area
@@ -38,6 +40,8 @@ type Props = {
 export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
   const ref = useRef<MapRef>(null)
   const box = bbox(area.geometry)
+  // Zones reaching the east sit against the locked map edge: their callout goes up-left from the top-left corner instead.
+  const calloutLeft = box[2] > CALLOUT_FLIP_LON
   const marks = useMemo(() => brackets(box), [box[0], box[1], box[2], box[3]]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
@@ -52,10 +56,11 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
     if (country?.zoom !== undefined && Number.isFinite(country.zoom)) map.setMinZoom(Math.min(map.getMaxZoom(), Math.max(0, country.zoom)))
     const { clientWidth: w, clientHeight: h } = map.getContainer()
     const target = area.whole ? VIEW : box
-    // Room for the title (bottom-left) and for the callout that leaves the box's top-right corner (~260 px wide, ~50 px up) plus the map buttons.
+    // Room for the title (bottom-left) and for the callout (~260 px wide, ~50 px up) on its side, plus the map buttons on the right.
+    const callout = Math.max(w * 0.12, Math.min(320, w * 0.45))
     const padding = area.whole
       ? 0
-      : { top: Math.max(h * 0.12, 60), bottom: h * 0.32, left: w * 0.1, right: Math.max(w * 0.12, Math.min(320, w * 0.45)) }
+      : { top: Math.max(h * 0.12, 60), bottom: h * 0.32, left: calloutLeft ? callout : w * 0.1, right: calloutLeft ? w * 0.12 : callout }
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
     map.fitBounds([target[0], target[1], target[2], target[3]], { padding, maxZoom: 8, duration: animate && !reduced ? 900 : 0 })
   }
@@ -106,7 +111,13 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
       </Source>
       {cells && (
         <Source id="heat" type="geojson" data={cells}>
-          <Layer id="heat" type="fill" paint={{ 'fill-color': ['get', 'c'], 'fill-outline-color': '#000', 'fill-opacity': area.whole ? 0.95 : ['case', ['get', 'in'], 0.95, 0.22] }} />
+          {/* Cells outside the selected area are dimmed hard. beforeId: the grid loads after the outlines and must stay under them. */}
+          <Layer
+            id="heat"
+            type="fill"
+            beforeId="border"
+            paint={{ 'fill-color': ['get', 'c'], 'fill-outline-color': '#000', 'fill-opacity': ['case', ['get', 'in'], 0.95, 0.12] }}
+          />
         </Source>
       )}
       <Source id="border" type="geojson" data={UKRAINE_BORDER}>
@@ -115,7 +126,9 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
       {!area.whole && (
         <Source id="area" type="geojson" data={area.geometry}>
           <Layer id="area-fill" type="fill" paint={{ 'fill-color': '#f0f0fa', 'fill-opacity': 0.06 }} />
-          <Layer id="area-line" type="line" paint={{ 'line-color': '#fff', 'line-width': 1, 'line-dasharray': [5, 4] }} />
+          {/* A dark casing under the white dashes keeps the outline readable over bright cells. Dash lengths are in line widths. */}
+          <Layer id="area-casing" type="line" paint={{ 'line-color': '#000', 'line-width': 5, 'line-opacity': 0.7 }} />
+          <Layer id="area-line" type="line" paint={{ 'line-color': '#fff', 'line-width': 2, 'line-dasharray': [3, 2] }} />
         </Source>
       )}
       {!area.whole && (
@@ -129,10 +142,10 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
         </Marker>
       ))}
       {!area.whole && (
-        <Marker longitude={box[2]} latitude={box[3]} anchor="bottom-left">
-          <span className="callout">
+        <Marker longitude={calloutLeft ? box[0] : box[2]} latitude={box[3]} anchor={calloutLeft ? 'bottom-right' : 'bottom-left'}>
+          <span className={calloutLeft ? 'callout is-left' : 'callout'}>
             <svg width="104" height="34" viewBox="0 0 104 34" aria-hidden="true">
-              <path d="M0 34L34 0H104" />
+              <path d={calloutLeft ? 'M104 34L70 0H0' : 'M0 34L34 0H104'} />
             </svg>
             <span>{area.short}</span>
           </span>

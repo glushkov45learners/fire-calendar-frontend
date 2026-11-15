@@ -22,7 +22,7 @@ export function bboxPolygon([w, s, e, n]: Bbox): Polygon {
   return { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] }
 }
 
-/** Outer rings of every polygon; holes are ignored throughout (presets and drawn shapes have none). */
+/** Outer rings of every polygon (for extents and validity checks; area and point-in-polygon account for holes). */
 export const outerRings = (g: Geometry): Position[][] => (g.type === 'Polygon' ? [g.coordinates[0]] : g.coordinates.map((p) => p[0]))
 
 export function bbox(g: Geometry): Bbox {
@@ -48,25 +48,33 @@ export function centroid(g: Geometry): [number, number] {
 
 /** Approximate area in km² (equirectangular shoelace per ring), enough for labels and mock scaling. */
 export function areaKm2(g: Geometry): number {
-  return outerRings(g).reduce((total, ring) => {
-    const lat0 = ((ring.reduce((a, p) => a + p[1], 0) / ring.length) * Math.PI) / 180
-    let sum = 0
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) sum += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1]
-    return total + (Math.abs(sum) / 2) * KM_PER_DEG_LAT * KM_PER_DEG_LAT * Math.cos(lat0)
-  }, 0)
+  // Holes count against their polygon.
+  return polygons(g).reduce((total, rings) => rings.reduce((a, ring, i) => a + (i ? -1 : 1) * ringKm2(ring), total), 0)
 }
 
-/** Ray casting against the outer rings. */
+function ringKm2(ring: Position[]): number {
+  const lat0 = ((ring.reduce((a, p) => a + p[1], 0) / ring.length) * Math.PI) / 180
+  let sum = 0
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) sum += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1]
+  return (Math.abs(sum) / 2) * KM_PER_DEG_LAT * KM_PER_DEG_LAT * Math.cos(lat0)
+}
+
+/** Every polygon as [outer ring, ...holes]. */
+const polygons = (g: Geometry): Position[][][] => (g.type === 'Polygon' ? [g.coordinates] : g.coordinates)
+
+function inRing(lon: number, lat: number, ring: Position[]): boolean {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+/** Ray casting: inside an outer ring and outside its holes. */
 export function pointInGeometry(lon: number, lat: number, g: Geometry): boolean {
-  return outerRings(g).some((ring) => {
-    let inside = false
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const [xi, yi] = ring[i]
-      const [xj, yj] = ring[j]
-      if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
-    }
-    return inside
-  })
+  return polygons(g).some(([outer, ...holes]) => inRing(lon, lat, outer) && !holes.some((h) => inRing(lon, lat, h)))
 }
 
 export const inBbox = (lon: number, lat: number, [w, s, e, n]: Bbox) => lon >= w && lon <= e && lat >= s && lat <= n

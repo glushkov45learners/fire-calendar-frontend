@@ -143,7 +143,7 @@ try {
   await waitFor(`!document.querySelector('.map-note')`, 10000)
   check('grid follows the record and the period', /^MODIS detections per 0\.1° cell, Jan 2005 – Dec 2006/.test(await text('.map-key')), await text('.map-key'))
   await goto('/?area=chornobyl&record=viirs&from=2005&to=2006')
-  check('VIIRS before 2012: empty map with a note', (await text('.map-note')) === 'VIIRS S-NPP starts in 2012' && (await text('.map-key .ramp-ends')).trim() === '1')
+  check('VIIRS before 2012: empty map with a note', (await text('.map-note')) === 'VIIRS S-NPP starts in 2012' && (await text('.map-key .ramp-ends')).trim() === '')
   await goto('/?area=ua')
   await waitFor(`!document.querySelector('.map-note')`, 10000)
   await sleep(1500)
@@ -203,6 +203,12 @@ try {
   await goto('/?area=chornobyl&month=2003-01')
   const m3 = await text('#month .spec')
   check('small median: absolute difference instead of ratio', /Difference/.test(m3) && !/Ratio to median/.test(m3), m3)
+
+  /* the month stepper stays inside the period */
+  await goto('/?area=chornobyl&from=2026&to=2026&month=2026-01')
+  const prevDisabled = await ev(`return document.querySelector('.stepper button[aria-label^="Previous month"]').disabled`)
+  await goto('/?area=chornobyl&from=2026&to=2026&month=2024-05')
+  check('period 2026–2026: no stepping into 2025; a month outside the period is dropped', prevDisabled && (await text('#month-h')) === 'November 2026', await text('#month-h'))
 
   /* keyboard */
   await goto('/?area=chornobyl&from=2018&to=2020')

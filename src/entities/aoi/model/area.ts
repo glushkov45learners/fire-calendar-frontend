@@ -1,6 +1,15 @@
 import type { Polygon } from 'geojson'
 import { COVERAGE_BBOX, DEFAULT_RADIUS_KM, MAX_ABS_LAT, MAX_RADIUS_KM, UKRAINE_BORDER } from '@/shared/config'
-import { bboxPolygon, circlePolygon, inBbox, type Geometry } from '@/shared/lib/geo'
+import { circlePolygon, inBbox, type Geometry } from '@/shared/lib/geo'
+// Donetsk and Luhansk oblasts merged into one outline and simplified (~0.008°, 400 points).
+// Administrative boundaries courtesy of geoBoundaries.org (ADM1, 2017), © OpenStreetMap contributors, ODbL 1.0.
+import donbas from './donbas.json'
+// The exclusion zone: outer boundary of the Chornobyl Radiation and Ecological Biosphere Reserve (OSM relation 12045006),
+// without its hole around the plant, so Pripyat and Chornobyl are inside; simplified to ~0.003°. © OpenStreetMap contributors, ODbL 1.0.
+import chornobyl from './chornobyl.json'
+// shortcut: the Lower Dnipro sub-basin (M5.1.3) traced from a raster map of the Dnipro basin plan and georeferenced on 8 cities
+// (error 1–11 km, the map's pixel is ~2 km); replace with the official vector boundary when the team has it.
+import lowerDnipro from './lower-dnipro.json'
 
 /** An area of interest. `geometry` is exactly what goes to the API as `aoi`. */
 export type Area = {
@@ -17,9 +26,10 @@ export { UKRAINE_BORDER }
 
 // Order and boxes as in the design mockup.
 export const PRESETS: Area[] = [
-  { kind: 'preset', id: 'chornobyl', name: 'Chornobyl exclusion zone', short: 'Chornobyl zone', geometry: bboxPolygon([29.25, 51.1, 30.65, 51.6]) },
-  { kind: 'preset', id: 'kherson', name: 'Lower Dnipro, Kherson', short: 'Lower Dnipro', geometry: bboxPolygon([32, 46.2, 34.2, 47.1]) },
-  { kind: 'preset', id: 'donbas', name: 'Donbas front line', short: 'Donbas', geometry: bboxPolygon([37, 47.8, 39.5, 49.5]) },
+  { kind: 'preset', id: 'chornobyl', name: 'Chornobyl exclusion zone', short: 'Chornobyl zone', geometry: chornobyl as Polygon },
+  // id stays 'kherson' so existing links keep working.
+  { kind: 'preset', id: 'kherson', name: 'Lower Dnipro basin', short: 'Lower Dnipro', geometry: lowerDnipro as Polygon },
+  { kind: 'preset', id: 'donbas', name: 'Donbas', short: 'Donbas', geometry: donbas as Polygon },
   { kind: 'preset', id: 'ua', name: 'Ukraine', short: 'All of Ukraine', geometry: UKRAINE_BORDER, whole: true },
 ]
 

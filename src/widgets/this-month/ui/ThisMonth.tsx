@@ -48,7 +48,8 @@ export function ThisMonth({ result, meta, chosen, from, to, unit, onChoose }: Pr
   return (
     <Frame
       title={periodLabel(period)}
-      stepper={<MonthStepper value={period} min={meta.date_min.slice(0, 7)} max={cur.period} current={cur.period} onChange={onChoose} />}
+      // Stepping stays inside the selected period (and the archive): from=to=2026 means Jan–Nov 2026, nothing earlier.
+      stepper={<MonthStepper value={period} min={maxStr(meta.date_min.slice(0, 7), `${from}-01`)} max={minStr(cur.period, `${to}-12`)} current={cur.period} onChange={onChoose} />}
       copy={
         <>
           {isCurrent && `In the first ${cur.days_observed} days, `}
@@ -88,6 +89,9 @@ export function ThisMonth({ result, meta, chosen, from, to, unit, onChoose }: Pr
     />
   )
 }
+
+const maxStr = (a: string, b: string) => (a > b ? a : b)
+const minStr = (a: string, b: string) => (a < b ? a : b)
 
 type StripProps = { hist: { year: number; v: number }[]; count: number; median: number; band?: [number, number]; label: string; name: string }
 
