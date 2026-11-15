@@ -189,16 +189,16 @@ try {
   await waitFor(`document.querySelector('.map-key')?.textContent.includes('April 2020') && !document.querySelector('.map-note')`, 10000)
   const bars = await ev(`return document.querySelectorAll('.daily rect').length`)
   const mapKey = await text('.map-key')
-  check('click chooses the month: URL, This month, days, map grid of that month', bars === 30 && (await text('#month-h')) === 'April 2020' && /^Harmonized detections per 0\.1° cell, April 2020/.test(mapKey), `${bars} days; ${mapKey}`)
+  check('click chooses the month: URL, Month section, days, map grid of that month', bars === 30 && (await text('#month-h')) === 'April 2020' && /^Harmonized detections per 0\.1° cell, April 2020/.test(mapKey), `${bars} days; ${mapKey}`)
   await sleep(800)
   await shot('desktop-april-2020', true)
   await goto('/?area=chornobyl&from=2010&to=2026')
   check('period over 3 years: hint to narrow it', (await text('#month')).includes('Narrow the period to 3 years to see days'))
 
-  /* This month */
+  /* Month section */
   await goto('/?area=ua')
   const tm = await text('#month')
-  check('This month: current_month, "14 of 30 days"', /November 2026/.test(tm) && /14 of 30 days/.test(tm))
+  check('Month: current_month, "14 of 30 days"', /November 2026/.test(tm) && /14 of 30 days/.test(tm))
   check('strip shows the p25–p75 corridor', await ev(`return !!document.querySelector('.strip rect')`))
   await goto('/?area=chornobyl&month=2003-01')
   const m3 = await text('#month .spec')
@@ -288,6 +288,10 @@ try {
   await goto('/?area=chornobyl')
   const overflow = await ev(`return document.documentElement.scrollWidth - window.innerWidth`)
   check('390 px: no horizontal scroll', overflow <= 0, `${overflow}px`)
+  await waitFor(`document.querySelector('.map canvas')`, 15000)
+  const phone = await ev(`const c = document.querySelector('.map canvas').getBoundingClientRect(), s = document.querySelector('.cal-scroll'), k = document.querySelector('.map-key').getBoundingClientRect()
+    return { mapLeft: Math.round(c.left), mapWidth: Math.round(c.width), keyShown: k.width > 0 && k.left >= 0, calScrolls: s.scrollWidth > s.clientWidth, calAtEnd: s.scrollLeft > 0 }`)
+  check('390 px: map fills the width, legend shown, calendar scrolls sideways from the latest years', phone.mapLeft === 0 && phone.mapWidth === 390 && phone.keyShown && phone.calScrolls && phone.calAtEnd, JSON.stringify(phone))
   await shot('mobile-390', true)
 
   check('no console errors', errors.length === 0, errors.slice(0, 3).join(' || '))

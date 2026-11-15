@@ -14,8 +14,8 @@ export const PAN_BOUNDS: Bbox = [VIEW[0] - 0.5, VIEW[1] - 1.5, VIEW[2] + 0.5, VI
 
 /**
  * Squares of the 0.1° grid. `in` marks cells inside `area` (centre in it, the backend's rule; null = all), which the map
- * draws bright and the rest dimmed. Colours are SEQ on a log scale from the smallest to the largest count of the inside
- * cells, so even an area of similar cells spreads over the whole scale; outside cells are clamped to it.
+ * draws in colour and the rest in dim grey. Colours are SEQ on a log scale from the smallest to the largest count of the
+ * inside cells, so even an area of similar cells spreads over the whole scale.
  */
 export function heatCells(cells: GridCell[], area: Geometry | null): { fc: FeatureCollection<Polygon>; min: number; max: number } {
   const box = area && bbox(area)
@@ -29,9 +29,15 @@ export function heatCells(cells: GridCell[], area: Geometry | null): { fc: Featu
   const max = Math.max(1, ...shown.map((c) => c.count))
   const min = Math.max(1, Math.min(max, ...shown.map((c) => c.count)))
   const t = (v: number) => (max > min ? (Math.log(Math.max(v, min)) - Math.log(min)) / (Math.log(max) - Math.log(min)) : 1)
+  // Outside cells are grey, on their own log scale over all cells: clamping them to the area's colours turns into an olive mush.
+  const allMax = Math.max(1, ...all.map((c) => c.count))
+  const grey = (v: number) => {
+    const g = Math.round(45 + 150 * (Math.log(v + 1) / Math.log(allMax + 1)))
+    return `rgb(${g},${g},${g})`
+  }
   const features = all.map(({ cell_id, count, in: inside, b: [w, s, e, n] }): Feature<Polygon> => ({
     type: 'Feature',
-    properties: { id: cell_id, count, in: inside, c: ramp(SEQ, t(count)) },
+    properties: { id: cell_id, count, in: inside, c: inside ? ramp(SEQ, t(count)) : grey(count) },
     geometry: { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
   }))
   return { fc: { type: 'FeatureCollection', features }, min, max }

@@ -69,7 +69,8 @@ export function useView(meta: Meta | null) {
       set({ area: areaToParam(a) })
     },
     clearDrawn: () => {
-      if (area.kind === 'drawn') set({ area: null })
+      // Deleting a drawn area shows the whole country, not the default preset.
+      if (area.kind === 'drawn') set({ area: 'ua' })
       setDrawn(null)
     },
     setPeriod: (f: number, t: number) => set({ from: String(f), to: String(t) }),

@@ -9,6 +9,8 @@ import { UKRAINE_BORDER, type Area } from '@/entities/aoi'
 import { DrawAreaControl } from '@/features/draw-area'
 import { bbox } from '@/shared/lib/geo'
 import { brackets, graticule, PAN_BOUNDS, VIEW } from '../lib/layers'
+// Oblast borders (geoBoundaries ADM1, © OpenStreetMap contributors), simplified to ~1 km, as lines.
+import oblasts from '../model/oblasts.json'
 
 // Vite bundles maplibre-gl, which breaks its own import.meta.url lookup of the worker file.
 // This instance is passed to <Map mapLib>, since react-map-gl would otherwise load a second copy.
@@ -28,6 +30,8 @@ const CITIES: [string, number, number][] = [
 const LINES = graticule(VIEW)
 /** A zone whose east edge is past this longitude gets its callout on the left, away from the map's eastern edge. */
 const CALLOUT_FLIP_LON = 36.5
+/** Same breakpoint as the phone layout in index.css. */
+const PHONE_MAX = 720
 
 type Props = {
   area: Area
@@ -57,13 +61,33 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
     const { clientWidth: w, clientHeight: h } = map.getContainer()
     const target = area.whole ? VIEW : box
     // Room for the title (bottom-left) and for the callout (~260 px wide, ~50 px up) on its side, plus the map buttons on the right.
-    const callout = Math.max(w * 0.12, Math.min(320, w * 0.45))
-    const padding = area.whole
-      ? 0
-      : { top: Math.max(h * 0.12, 60), bottom: h * 0.32, left: calloutLeft ? callout : w * 0.1, right: calloutLeft ? w * 0.12 : callout }
+    if (w < 80 || h < 80) return // not laid out yet (lazy chunk, hidden tab): onResize frames it later
+    // Phones hide the callout (the title already names the area), so it needs no room there.
+    const callout = w <= PHONE_MAX ? w * 0.12 : Math.max(w * 0.12, Math.min(320, w * 0.45))
+    const raw = { top: Math.max(h * 0.12, 60), bottom: h * 0.32, left: calloutLeft ? callout : w * 0.1, right: calloutLeft ? w * 0.12 : callout }
+    // On a small frame (phones) the paddings must still leave room for the area, or MapLibre refuses to fit at all.
+    const kx = Math.min(1, (w * 0.6) / (raw.left + raw.right))
+    const ky = Math.min(1, (h * 0.6) / (raw.top + raw.bottom))
+    const padding = area.whole ? 0 : { top: raw.top * ky, bottom: raw.bottom * ky, left: raw.left * kx, right: raw.right * kx }
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
-    map.fitBounds([target[0], target[1], target[2], target[3]], { padding, maxZoom: 8, duration: animate && !reduced ? 900 : 0 })
+    map.fitBounds([target[0], target[1], target[2], target[3]], { padding, maxZoom: 9, duration: animate && !reduced ? 900 : 0 })
   }
+
+  // The grid and the outlines are added after mapbox-gl-draw's layers, so a polygon being drawn or edited would sit under the
+  // cells. Lift the draw layers to the top whenever the grid or the area changes, and while drawing.
+  useEffect(() => {
+    const map = ref.current?.getMap()
+    if (!map) return
+    const lift = () => {
+      for (const l of map.getStyle()?.layers ?? []) if ('source' in l && String(l.source).startsWith('mapbox-gl-draw')) map.moveLayer(l.id)
+    }
+    if (map.isStyleLoaded()) lift()
+    // MapLibre's typings don't know mapbox-gl-draw's custom events.
+    const ev = map as unknown as { on(e: string, f: () => void): void; off(e: string, f: () => void): void }
+    const events = ['draw.modechange', 'draw.create', 'load']
+    events.forEach((e) => ev.on(e, lift))
+    return () => events.forEach((e) => ev.off(e, lift))
+  }, [cells, area.id])
 
   // A new area: fly to it. (Before the map has loaded there is nothing to move; onLoad frames it.)
   useEffect(() => {
@@ -111,15 +135,18 @@ export default function MapCanvas({ area, cells, onDraw, onHover }: Props) {
       </Source>
       {cells && (
         <Source id="heat" type="geojson" data={cells}>
-          {/* Cells outside the selected area are dimmed hard. beforeId: the grid loads after the outlines and must stay under them. */}
+          {/* Cells outside the selected area are dimmed hard. beforeId: the grid loads after the outlines and oblast lines, and must stay under them. */}
           <Layer
             id="heat"
             type="fill"
-            beforeId="border"
-            paint={{ 'fill-color': ['get', 'c'], 'fill-outline-color': '#000', 'fill-opacity': ['case', ['get', 'in'], 0.95, 0.12] }}
+            beforeId="oblasts"
+            paint={{ 'fill-color': ['get', 'c'], 'fill-outline-color': '#000', 'fill-opacity': ['case', ['get', 'in'], 0.95, 0.25] }}
           />
         </Source>
       )}
+      <Source id="oblasts" type="geojson" data={oblasts as GeoJSON.FeatureCollection}>
+        <Layer id="oblasts" type="line" paint={{ 'line-color': '#f0f0fa', 'line-opacity': 0.28, 'line-width': 0.8 }} />
+      </Source>
       <Source id="border" type="geojson" data={UKRAINE_BORDER}>
         <Layer id="border" type="line" paint={{ 'line-color': '#f0f0fa', 'line-opacity': area.whole ? 0.9 : 0.32, 'line-width': 1 }} />
       </Source>

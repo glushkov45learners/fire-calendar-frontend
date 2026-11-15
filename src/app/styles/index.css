@@ -938,6 +938,24 @@
         opacity: 1;
     }
 }
+/* Tablets (stacked layout, room for two columns): the panel's groups flow into two columns instead of one long strip. */
+@media (min-width: 721px) and (max-width: 1180px) {
+    .panel {
+        columns: 2;
+        column-gap: 40px;
+        padding: 20px 32px 32px;
+    }
+    .panel > * {
+        break-inside: avoid;
+    }
+    .panel > form[role="search"] {
+        column-span: all;
+    }
+    .panel > .group:first-of-type {
+        margin-top: 0 !important;
+    }
+}
+
 @media (max-width: 720px) {
     .nav-item .lbl {
         display: none;
@@ -945,25 +963,37 @@
     .panel {
         padding: 20px 16px 32px;
     }
-    /* Phones: a full-width map would be too short for the title, so it bleeds off the right edge instead. */
+    /* Phones: the map fills the width; tall enough to pan and read, short enough to leave the page reachable. */
     .scene {
         aspect-ratio: auto;
-        height: 520px;
+        height: clamp(420px, 72svh, 620px);
     }
-    .map {
-        inset: 5% -18% auto auto;
-        height: 74%;
-        aspect-ratio: 1226 / 850;
+    .veil {
+        background: linear-gradient(rgb(0 0 0 / 0) 70%, #000 100%);
     }
     .opening {
         left: 16px;
         right: 16px;
-        bottom: 24px;
+        bottom: 20px;
     }
     .opening h1 {
-        font-size: 44px;
+        font-size: 40px;
     }
+    .date {
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+    /* The legend stays on phones, compact, in the free top-left corner (the map buttons are top-right). */
     .map-key {
+        left: 16px;
+        right: auto;
+        top: 12px;
+        bottom: auto;
+        width: min(200px, 55%);
+        font-size: 10px;
+    }
+    /* The area's name is the big title below; its callout would only collide with the map buttons. */
+    .callout {
         display: none;
     }
     .alert {
@@ -978,6 +1008,22 @@
     .split {
         grid-template-columns: 1fr;
     }
+    /* 27 years in 360 px leaves 12 px cells: scroll sideways instead, with cells a finger can hit. */
+    .cal-scroll {
+        overflow-x: auto;
+        margin: 0 -16px;
+        padding: 0 16px;
+        scrollbar-width: thin;
+    }
+    .cal-scroll .cal {
+        min-width: 680px;
+    }
+    .cal-head {
+        gap: 16px;
+    }
+    .actions {
+        gap: 12px;
+    }
     .foot {
         flex-direction: column;
         align-items: flex-start;
@@ -988,6 +1034,42 @@
         flex-wrap: wrap;
     }
 }
+
+/* Small phones: the brand mark alone, so the section icons fit in one row. */
+@media (max-width: 480px) {
+    .brand .lbl {
+        display: none;
+    }
+    .brand {
+        margin-right: 4px;
+    }
+    .side {
+        gap: 4px;
+    }
+    .opening h1 {
+        font-size: 34px;
+    }
+    .point-form .fields {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Touch screens: map buttons big enough for a finger. */
+@media (pointer: coarse) {
+    .maplibregl-ctrl-group button {
+        width: 40px !important;
+        height: 40px !important;
+    }
+}
+
+/* Large monitors: keep text and charts at a readable width instead of stretching across 2000+ px. */
+@media (min-width: 1800px) {
+    .chapter,
+    .foot {
+        max-width: 1560px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     * {
         transition: none !important;

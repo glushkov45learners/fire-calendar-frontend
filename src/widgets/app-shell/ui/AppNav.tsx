@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 const SECTIONS = [
   { id: 'top', label: 'Map', icon: 'M2.5 5.5l5-2 5 2 5-2v11l-5 2-5-2-5 2zM7.5 3.5v11M12.5 5.5v11' },
   { id: 'calendar', label: 'Calendar', icon: 'M2.5 4.5h15v12h-15zM2.5 8h15M7.5 8v8.5M12.5 8v8.5M2.5 12.2h15' },
-  { id: 'month', label: 'This month', icon: 'M2.5 15.5h15M5 15.5v-5M8.3 15.5v-9M11.6 15.5v-3M15 15.5V4' },
+  { id: 'month', label: 'Month', icon: 'M2.5 15.5h15M5 15.5v-5M8.3 15.5v-9M11.6 15.5v-3M15 15.5V4' },
   { id: 'sensors', label: 'Sensors', icon: 'M2.5 14.5l4-4 3 2 3.5-6 4.5 3' },
 ] as const
 

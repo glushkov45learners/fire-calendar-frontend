@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { describeAnomaly, type Cell, type RecordKind } from '@/entities/analysis'
 import type { CalendarMode } from '@/features/select-calendar-mode'
 import { fmt, MONTHS_SHORT, periodLabel } from '@/shared/lib/format'
@@ -33,6 +33,13 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
   const tip = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<{ cell: Cell; left: number; top: number } | null>(null)
   const [focusKey, setFocusKey] = useState<string | null>(null)
+  const scroller = useRef<HTMLDivElement>(null)
+
+  // On phones the grid scrolls sideways; start at the latest years, which is what people look for first.
+  useEffect(() => {
+    const el = scroller.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [from, to])
 
   const years = Array.from({ length: to - from + 1 }, (_, i) => from + i)
   const byPeriod = new Map(cells.map((c) => [c.period, c]))
@@ -106,6 +113,7 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
         </div>
       </div>
       <div className="cal-wrap" ref={wrap}>
+        <div className="cal-scroll" ref={scroller} onScroll={() => setHover(null)}>
         <svg
           ref={svg}
           className="cal"
@@ -162,6 +170,7 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
             </g>
           ))}
         </svg>
+        </div>
         <div className="tip" ref={tip} style={hover ? { left: hover.left, top: hover.top, opacity: 1 } : undefined} aria-hidden="true">
           {hover && <Tip cell={hover.cell} record={record} unit={unit} />}
         </div>

@@ -19,7 +19,7 @@ type Props = {
 
 /** A month of the harmonized record against its norm: the current, incomplete month by default, or one chosen in the calendar. */
 export function ThisMonth({ result, meta, chosen, from, to, unit, onChoose }: Props) {
-  if (!result || !meta) return <Frame title="This month" copy="Loading the record…" />
+  if (!result || !meta) return <Frame title="Month" copy="Loading the record…" />
 
   const cur = result.current_month
   const period = chosen ?? cur.period
