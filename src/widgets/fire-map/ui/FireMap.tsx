@@ -1,5 +1,5 @@
 import type { Polygon } from 'geojson'
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Area } from '@/entities/aoi'
 import type { GridCell } from '@/shared/api'
 import { fmt } from '@/shared/lib/format'
@@ -9,6 +9,10 @@ import { cellLabel, heatCells } from '../lib/layers'
 
 // The map engine is a separate chunk; title, legend and the rest of the page render without waiting for it.
 const MapCanvas = lazy(() => import('./MapCanvas'))
+
+/** Distance from the pointer to the tooltip, and the least it keeps from the map's edge. */
+const TIP_OFFSET = 12
+const TIP_MARGIN = 8
 
 type Props = {
   area: Area
@@ -36,18 +40,37 @@ export function FireMap({ area, dateLabel, busy, grid, onDraw }: Props) {
     [grid.data, grid.note, area.id],
   )
   const [hover, setHover] = useState<{ id: number; count: number; x: number; y: number } | null>(null)
+  const mapEl = useRef<HTMLDivElement>(null)
+  const tipEl = useRef<HTMLDivElement>(null)
+  // The scene clips what leaves it, so near the right or bottom edge the tooltip flips to the other side of the pointer
+  // instead of being cut off; it is placed before paint, once its size is known.
+  useLayoutEffect(() => {
+    const tip = tipEl.current
+    const map = mapEl.current
+    if (!hover || !tip || !map) return
+    const room = (pointer: number, size: number, limit: number) => {
+      const after = pointer + TIP_OFFSET
+      const pos = after + size > limit - TIP_MARGIN ? pointer - TIP_OFFSET - size : after
+      return Math.max(TIP_MARGIN, pos)
+    }
+    // Measured from the corner: the width of an absolutely placed box shrinks when it starts near the edge.
+    tip.style.left = '0px'
+    tip.style.top = '0px'
+    tip.style.left = `${room(hover.x, tip.offsetWidth, map.clientWidth)}px`
+    tip.style.top = `${room(hover.y, tip.offsetHeight, map.clientHeight)}px`
+  }, [hover])
   const status = grid.note ?? grid.error ?? (grid.loading ? 'Loading the grid…' : null)
 
   return (
     <section className="scene" id="top" aria-label="Map">
-      <div className="map">
+      <div className="map" ref={mapEl}>
         <ErrorBoundary fallback={<p className="map-down">The map could not load. The calendar and charts below still work; reload to try the map again.</p>}>
           <Suspense fallback={null}>
             <MapCanvas area={area} cells={heat?.fc ?? null} onDraw={onDraw} onHover={setHover} />
           </Suspense>
         </ErrorBoundary>
         {hover && (
-          <div className="tip" style={{ left: hover.x + 12, top: hover.y + 12, opacity: 1 }} aria-hidden="true">
+          <div className="tip" ref={tipEl} style={{ opacity: 1 }} aria-hidden="true">
             <b>{cellLabel(hover.id)}</b>
             {fmt(hover.count)} {grid.unit.toLowerCase()}, {grid.period}
           </div>

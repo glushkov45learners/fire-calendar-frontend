@@ -9,8 +9,14 @@ const FIELDS = [
 ] as const
 
 /** An area as a circle around a point, for coordinates that come from a report rather than the map. */
-export function PointRadiusForm({ onSubmit }: { onSubmit: (a: Area) => void }) {
+export function PointRadiusForm({ areaId, onSubmit }: { areaId: string; onSubmit: (a: Area) => void }) {
   const [error, setError] = useState('')
+  // A message is about the last attempt: once the area is set from elsewhere (a preset, the map, search), it no longer applies.
+  const [seenAreaId, setSeenAreaId] = useState(areaId)
+  if (seenAreaId !== areaId) {
+    setSeenAreaId(areaId)
+    setError('')
+  }
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()

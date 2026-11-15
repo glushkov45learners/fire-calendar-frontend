@@ -16,10 +16,10 @@ export function MonthStepper({ value, min, max, current, onChange }: Props) {
   const next = shiftPeriod(value, 1)
   return (
     <div className="stepper" role="group" aria-label="Chosen month">
-      <button type="button" className="action" disabled={prev < min} onClick={() => onChange(prev)} aria-label={`Previous month, ${periodLabel(prev)}`}>
+      <button type="button" className="action is-arrow" disabled={prev < min} onClick={() => onChange(prev)} aria-label={`Previous month, ${periodLabel(prev)}`}>
         ‹
       </button>
-      <button type="button" className="action" disabled={next > max} onClick={() => onChange(next)} aria-label={`Next month, ${periodLabel(next)}`}>
+      <button type="button" className="action is-arrow" disabled={next > max} onClick={() => onChange(next)} aria-label={`Next month, ${periodLabel(next)}`}>
         ›
       </button>
       <button type="button" className="action" disabled={value === current || current < min || current > max} onClick={() => onChange(null)}>

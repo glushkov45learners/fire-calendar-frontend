@@ -18,7 +18,8 @@ export function SelectionSummary({ result, from, to, baseline }: Props) {
     <SpecList
       rows={[
         ['Detections, harmonized', fmt(result.totals.count_h)],
-        ['Raw hotspots', fmt(result.totals.hotspots_raw)],
+        // MODIS and VIIRS S-NPP only, the two sensors the record is built from; the hotspots CSV also carries NOAA-20 and NOAA-21.
+        ['Raw hotspots, MODIS + S-NPP', fmt(result.totals.hotspots_raw)],
         [`Peak month, ${baseline} median`, peak ? MONTHS[peak.month - 1] : 'No data'],
         [`Most active year, ${baseline}`, top ? `${top.year}, ${fmt(top.count_h)}` : 'No data'],
         ['Largest month in period', largest && largest.count_h > 0 ? `${periodLabel(largest.period, true)}, ${fmt(largest.count_h)}` : 'No data'],

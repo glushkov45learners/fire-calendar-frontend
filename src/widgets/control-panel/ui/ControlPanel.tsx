@@ -39,7 +39,7 @@ export function ControlPanel(p: Props) {
         <PresetTiles value={p.area} onSelect={p.onArea} />
         <details className="more">
           <summary>Point and radius</summary>
-          <PointRadiusForm onSubmit={p.onArea} />
+          <PointRadiusForm areaId={p.area.id} onSubmit={p.onArea} />
         </details>
         <p className="hint">Or draw a polygon on the map with the shape tool at its top right.</p>
       </div>
@@ -68,6 +68,7 @@ export function ControlPanel(p: Props) {
         <CalendarCsvButton area={p.area} from={p.range?.from ?? ''} to={p.range?.to ?? ''} disabled={!p.range} />
         <HotspotsCsvButton area={p.area} from={p.range?.from ?? ''} to={p.range?.to ?? ''} disabled={!p.range} />
       </div>
+      <p className="hint">The hotspots CSV also lists NOAA-20 and NOAA-21 detections, so it has more rows than the raw count above.</p>
       {p.demo && <p className="hint">Demo data: real monthly counts for the four saved areas; other areas are scaled from the nearest one.</p>}
     </section>
   )

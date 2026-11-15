@@ -49,7 +49,9 @@ export function BurnCalendar({ cells, from, to, mode, record, unit, baseline, se
   const max = Math.max(1, ...cells.map((c) => c.value ?? 0))
   const label = record === 'harm' ? unit : RAW_UNIT[record]
   // Roving tab stop: the focused cell, else the chosen month, else the latest month with data.
-  const tabStop = focusKey ?? (selected && byPeriod.has(selected) ? selected : cells.filter((c) => c.value !== null).at(-1)?.period ?? cells[0]?.period)
+  // A focused cell that the period no longer shows is forgotten, or Tab would find no cell at all.
+  const focused = focusKey && +focusKey.slice(0, 4) >= from && +focusKey.slice(0, 4) <= to ? focusKey : null
+  const tabStop = focused ?? (selected && byPeriod.has(selected) ? selected : cells.filter((c) => c.value !== null).at(-1)?.period ?? cells[0]?.period)
 
   const fill = (c: Cell) => {
     if (mode === 'anom') return ramp(DIV, 0.5 + Math.max(-1, Math.min(1, (c.row?.z ?? 0) / Z_RANGE)) / 2)
