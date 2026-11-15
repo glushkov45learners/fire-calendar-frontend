@@ -17,8 +17,6 @@ NASA Space Apps Challenge 2026 · *Harmonization of MODIS and VIIRS Hot Spots* �
 
 <img src=".github/preview.png" alt="Fire Calendar: harmonized detections over Ukraine on a 0.1° grid, with the burning calendar below" width="100%">
 
-</div>
-
 ## Why
 
 Raw satellite fire counts over Ukraine jump every time a new sensor comes online, not when fires change:
